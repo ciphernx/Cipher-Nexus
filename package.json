@@ -1,6 +1,6 @@
 {
   "name": "@ciphernx/cipher-nexus",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A privacy-preserving AI framework that enables secure federated learning and data marketplace, protecting data privacy while advancing AI capabilities.",
   "private": false,
   "avatar": "https://raw.githubusercontent.com/ciphernx/Cipher-Nexus/main/docs/assets/logo.svg",
