@@ -2,13 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  body {
+    @apply antialiased;
+  }
+}
+
 @layer components {
   .btn {
-    @apply px-4 py-2 rounded-md font-medium transition-colors;
+    @apply inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500;
   }
   
-  .btn-primary {
-    @apply bg-primary text-white hover:bg-primary-700;
+  .btn-secondary {
+    @apply text-blue-700 bg-blue-100 hover:bg-blue-200;
   }
   
   .form-field {
@@ -16,11 +22,11 @@
   }
   
   .form-label {
-    @apply block text-sm font-medium mb-1;
+    @apply block text-sm font-medium text-gray-700 mb-1;
   }
   
   .form-input {
-    @apply w-full px-3 py-2 border rounded-md;
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
   }
   
   .error-message {
@@ -36,7 +42,7 @@
   }
 
   .stat-value {
-    @apply text-3xl font-bold text-primary;
+    @apply text-3xl font-bold text-blue-600;
   }
 
   .stat-label {
@@ -48,12 +54,8 @@
   }
 
   .activity-icon {
-    @apply flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-primary-100;
+    @apply flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-blue-100;
   }
-}
-
-.form-input {
-  @apply w-full px-4 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
 }
 
 .form-input:disabled {

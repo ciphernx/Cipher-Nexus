@@ -1,29 +1,20 @@
-import React from 'react';
+import { ReactNode } from 'react';
 
 interface CardProps {
-  title?: string;
-  subtitle?: string;
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
+  onClick?: () => void;
 }
 
-export const Card: React.FC<CardProps> = ({
-  title,
-  subtitle,
-  children,
-  className = ''
-}) => {
+export const Card = ({ children, className = '', onClick }: CardProps) => {
   return (
-    <div className={`card ${className}`}>
-      {(title || subtitle) && (
-        <div className="card-header">
-          {title && <h3 className="card-title">{title}</h3>}
-          {subtitle && <p className="card-subtitle">{subtitle}</p>}
-        </div>
-      )}
-      <div className="card-content">
-        {children}
-      </div>
+    <div
+      className={`bg-white overflow-hidden shadow rounded-lg ${className}`}
+      onClick={onClick}
+    >
+      {children}
     </div>
   );
 };
+
+export default Card;

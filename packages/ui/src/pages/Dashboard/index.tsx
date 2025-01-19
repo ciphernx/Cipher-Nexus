@@ -1,78 +1,88 @@
 import React from 'react';
-import { Card } from '../../components/DataDisplay';
-import { Container } from '../../components/Layout';
+import {
+  DocumentDuplicateIcon,
+  ServerIcon,
+  ChartBarIcon,
+  ShieldCheckIcon,
+} from '@heroicons/react/24/outline';
 
-export const DashboardPage: React.FC = () => {
+const stats = [
+  {
+    id: 1,
+    name: 'Total Projects',
+    stat: '12',
+    change: '+20.1%',
+    changeType: 'increase',
+    icon: DocumentDuplicateIcon,
+  },
+  {
+    id: 2,
+    name: 'Active Models',
+    stat: '24',
+    change: '+15%',
+    changeType: 'increase',
+    icon: ServerIcon,
+  },
+  {
+    id: 3,
+    name: 'Training Jobs',
+    stat: '8',
+    change: '+12.5%',
+    changeType: 'increase',
+    icon: ChartBarIcon,
+  },
+  {
+    id: 4,
+    name: 'Privacy Score',
+    stat: '98.5%',
+    change: '+4.75%',
+    changeType: 'increase',
+    icon: ShieldCheckIcon,
+  },
+];
+
+const Dashboard: React.FC = () => {
+  console.log('Dashboard component rendered');
+  
   return (
-    <Container>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-        <Card className="bg-white">
-          <div className="p-6">
-            <h3 className="text-lg font-medium text-gray-900">Privacy Score</h3>
-            <div className="mt-2">
-              <span className="text-4xl font-bold text-primary">98%</span>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="bg-white">
-          <div className="p-6">
-            <h3 className="text-lg font-medium text-gray-900">Protected Models</h3>
-            <div className="mt-2">
-              <span className="text-4xl font-bold text-primary">12</span>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="bg-white">
-          <div className="p-6">
-            <h3 className="text-lg font-medium text-gray-900">Active Projects</h3>
-            <div className="mt-2">
-              <span className="text-4xl font-bold text-primary">5</span>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="bg-white">
-          <div className="p-6">
-            <h3 className="text-lg font-medium text-gray-900">Data Processed</h3>
-            <div className="mt-2">
-              <span className="text-4xl font-bold text-primary">1.2TB</span>
-            </div>
-          </div>
-        </Card>
+    <div className="py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+        <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
       </div>
-
-      <Card className="bg-white">
-        <div className="p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Activities</h3>
-          <div className="space-y-4">
-            {[
-              {
-                id: '1',
-                description: 'Started training model: Privacy-Enhanced NLP',
-                timestamp: new Date().toISOString()
-              },
-              {
-                id: '2',
-                description: 'New project created: Secure Data Analysis',
-                timestamp: new Date().toISOString()
-              }
-            ].map(activity => (
-              <div key={activity.id} className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">{activity.description}</p>
-                  <p className="text-sm text-gray-500">
-                    {new Date(activity.timestamp).toLocaleString()}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+        <div className="py-4">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {stats.map((item) => (
+              <div
+                key={item.id}
+                className="relative bg-white pt-5 px-4 pb-12 sm:pt-6 sm:px-6 shadow rounded-lg overflow-hidden"
+              >
+                <dt>
+                  <div className="absolute bg-blue-500 rounded-md p-3">
+                    <item.icon className="h-6 w-6 text-white" aria-hidden="true" />
+                  </div>
+                  <p className="ml-16 text-sm font-medium text-gray-500 truncate">
+                    {item.name}
                   </p>
-                </div>
+                </dt>
+                <dd className="ml-16 pb-6 flex items-baseline sm:pb-7">
+                  <p className="text-2xl font-semibold text-gray-900">
+                    {item.stat}
+                  </p>
+                  <p
+                    className={`ml-2 flex items-baseline text-sm font-semibold
+                      ${item.changeType === 'increase' ? 'text-green-600' : 'text-red-600'}`}
+                  >
+                    {item.change}
+                  </p>
+                </dd>
               </div>
             ))}
           </div>
         </div>
-      </Card>
-    </Container>
+      </div>
+    </div>
   );
 };
+
+export default Dashboard;

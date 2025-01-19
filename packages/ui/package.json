@@ -2,6 +2,7 @@
   "name": "@cipher-nexus/ui",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -9,15 +10,20 @@
     "lint": "eslint src --ext .ts,.tsx"
   },
   "dependencies": {
+    "@ant-design/icons": "^5.2.6",
+    "@cipher-nexus/core": "0.1.0",
+    "@headlessui/react": "^2.2.0",
+    "@heroicons/react": "^2.2.0",
+    "antd": "^5.12.5",
+    "axios": "^1.6.3",
+    "chart.js": "^4.4.7",
+    "dayjs": "^1.11.10",
     "react": "^18.2.0",
+    "react-chartjs-2": "^5.3.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.1",
-    "zustand": "^4.4.7",
-    "@cipher-nexus/core": "0.1.0",
-    "antd": "^5.12.5",
-    "@ant-design/icons": "^5.2.6",
-    "axios": "^1.6.3",
-    "dayjs": "^1.11.10"
+    "recharts": "^2.15.0",
+    "zustand": "^4.4.7"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",

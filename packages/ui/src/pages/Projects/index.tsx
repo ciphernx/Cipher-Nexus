@@ -1,10 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Table } from '../../components/DataDisplay';
-import { Container } from '../../components/Layout';
-import { Project } from '../../types/project';
-import { CreateProjectModal } from './components/CreateProjectModal';
-import { EditProjectModal } from './components/EditProjectModal';
+import { FolderIcon, LockClosedIcon } from '@heroicons/react/24/outline';
+
+interface Project {
+  id: string;
+  name: string;
+  description: string;
+  privacyLevel: 'high' | 'medium' | 'low';
+  status: 'active' | 'paused' | 'completed';
+  createdAt: string;
+  updatedAt: string;
+  modelCount: number;
+  dataSize: string;
+}
 
 const MOCK_PROJECTS: Project[] = [
   {
@@ -31,184 +39,91 @@ const MOCK_PROJECTS: Project[] = [
   }
 ];
 
-export const ProjectsPage: React.FC = () => {
+const Projects: React.FC = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>(MOCK_PROJECTS);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleCreateProject = async (data: any) => {
-    setIsLoading(true);
-    try {
-      const newProject: Project = {
-        id: String(projects.length + 1),
-        ...data,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        modelCount: 0,
-        dataSize: '0 GB'
-      };
-      setProjects([...projects, newProject]);
-      setIsCreateModalOpen(false);
-    } catch (error) {
-      console.error('Failed to create project:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleEditProject = async (data: Partial<Project>) => {
-    if (!selectedProject) return;
-    
-    setIsLoading(true);
-    try {
-      const updatedProject = {
-        ...selectedProject,
-        ...data,
-        updatedAt: new Date().toISOString()
-      };
-      
-      setProjects(projects.map(p => 
-        p.id === selectedProject.id ? updatedProject : p
-      ));
-      setIsEditModalOpen(false);
-      setSelectedProject(null);
-    } catch (error) {
-      console.error('Failed to update project:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleViewProject = (projectId: string) => {
-    navigate(`/projects/${projectId}`);
-  };
-
-  const handleEditClick = (project: Project) => {
-    setSelectedProject(project);
-    setIsEditModalOpen(true);
-  };
-
-  const columns = [
-    { 
-      key: 'name',
-      title: 'Project Name',
-      render: (value: string, project: Project) => (
-        <div>
-          <div className="font-medium text-gray-900">{value}</div>
-          <div className="text-sm text-gray-500">{project.description}</div>
-        </div>
-      )
-    },
-    {
-      key: 'privacyLevel',
-      title: 'Privacy Level',
-      render: (value: Project['privacyLevel']) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          value === 'high' ? 'bg-green-100 text-green-800' :
-          value === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-          'bg-gray-100 text-gray-800'
-        }`}>
-          {value.charAt(0).toUpperCase() + value.slice(1)}
-        </span>
-      )
-    },
-    {
-      key: 'status',
-      title: 'Status',
-      render: (value: Project['status']) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          value === 'active' ? 'bg-green-100 text-green-800' :
-          value === 'paused' ? 'bg-yellow-100 text-yellow-800' :
-          'bg-blue-100 text-blue-800'
-        }`}>
-          {value.charAt(0).toUpperCase() + value.slice(1)}
-        </span>
-      )
-    },
-    {
-      key: 'modelCount',
-      title: 'Models',
-      render: (value: number) => value
-    },
-    {
-      key: 'dataSize',
-      title: 'Data Size',
-      render: (value: string) => value
-    },
-    {
-      key: 'actions',
-      title: '',
-      render: (_: any, project: Project) => (
-        <div className="flex justify-end space-x-2">
-          <button 
-            className="text-sm text-primary hover:text-primary-dark"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleViewProject(project.id);
-            }}
-          >
-            View
-          </button>
-          <button 
-            className="text-sm text-gray-600 hover:text-gray-900"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEditClick(project);
-            }}
-          >
-            Edit
-          </button>
-        </div>
-      )
-    }
-  ];
 
   return (
-    <Container>
-      <div className="py-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Projects</h1>
-          <button
-            className="btn btn-primary"
-            onClick={() => setIsCreateModalOpen(true)}
-          >
-            New Project
-          </button>
-        </div>
-
-        <Card className="bg-white overflow-hidden">
-          <div className="p-6">
-            <Table
-              data={projects}
-              columns={columns}
-              onRowClick={(project) => handleViewProject(project.id)}
-            />
-          </div>
-        </Card>
-
-        <CreateProjectModal
-          isOpen={isCreateModalOpen}
-          onClose={() => setIsCreateModalOpen(false)}
-          onSubmit={handleCreateProject}
-          isLoading={isLoading}
-        />
-
-        {selectedProject && (
-          <EditProjectModal
-            isOpen={isEditModalOpen}
-            onClose={() => {
-              setIsEditModalOpen(false);
-              setSelectedProject(null);
-            }}
-            onSubmit={handleEditProject}
-            project={selectedProject}
-            isLoading={isLoading}
-          />
-        )}
+    <div className="py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+        <h1 className="text-2xl font-semibold text-gray-900">Projects</h1>
       </div>
-    </Container>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+        <div className="py-4">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {projects.map((project) => (
+              <div
+                key={project.id}
+                className="bg-white overflow-hidden shadow rounded-lg hover:shadow-lg transition-shadow duration-200"
+              >
+                <div className="p-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <FolderIcon className="h-6 w-6 text-gray-400" aria-hidden="true" />
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-lg font-medium text-gray-900">
+                        {project.name}
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        {project.description}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center">
+                        <LockClosedIcon className="h-4 w-4 text-green-500 mr-1" />
+                        <span className="text-gray-600">
+                          {project.privacyLevel.charAt(0).toUpperCase() + project.privacyLevel.slice(1)} Privacy
+                        </span>
+                      </div>
+                      <span className="text-gray-500">
+                        Updated {new Date(project.updatedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="mt-4 flex justify-between">
+                      <span className={`
+                        inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                        ${
+                          project.status === 'active'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }
+                      `}>
+                        {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                      </span>
+                      <button
+                        type="button"
+                        className="text-sm font-medium text-blue-600 hover:text-blue-500"
+                        onClick={() => navigate(`/app/projects/${project.id}`)}
+                      >
+                        View details
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Add New Project Card */}
+            <div className="bg-white overflow-hidden shadow rounded-lg border-2 border-dashed border-gray-300">
+              <button
+                type="button"
+                className="relative block w-full h-full rounded-lg p-12 text-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                onClick={() => {/* TODO: Implement project creation */}}
+              >
+                <FolderIcon className="mx-auto h-12 w-12 text-gray-400" />
+                <span className="mt-2 block text-sm font-medium text-gray-900">
+                  Create a new project
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
+
+export default Projects;

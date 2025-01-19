@@ -1,174 +1,115 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Card, Table } from '../../components/DataDisplay';
-import { Container } from '../../components/Layout';
-import { Model } from '../../types/model';
+import React from 'react';
+import { Card } from '../../components/DataDisplay';
+import { ChartBarIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
 
-const MOCK_MODELS: Model[] = [
+const models = [
   {
     id: '1',
-    name: 'Privacy-Enhanced NLP Model',
-    type: 'nlp',
-    description: 'NLP model with differential privacy',
-    status: 'ready',
-    projectId: '1',
-    projectName: 'Privacy-Enhanced NLP',
-    accuracy: 0.92,
-    privacyScore: 0.95,
-    createdAt: '2024-01-19T00:00:00Z',
-    updatedAt: '2024-01-19T00:00:00Z',
-    lastTrainingTime: '2024-01-19T00:00:00Z',
-    parameters: {
-      epochs: 100,
-      batchSize: 32,
-      learningRate: 0.001,
-      privacyBudget: 1.0
-    }
+    name: 'Privacy-Enhanced BERT',
+    type: 'NLP',
+    accuracy: '94.5%',
+    privacyScore: '98%',
+    status: 'Deployed',
+    lastTrained: '2024-01-18',
   },
   {
     id: '2',
-    name: 'Secure Vision Model',
-    type: 'vision',
-    description: 'Computer vision with homomorphic encryption',
-    status: 'training',
-    projectId: '2',
-    projectName: 'Secure Data Analysis',
-    accuracy: 0.88,
-    privacyScore: 0.98,
-    createdAt: '2024-01-19T00:00:00Z',
-    updatedAt: '2024-01-19T00:00:00Z',
-    parameters: {
-      epochs: 50,
-      batchSize: 64,
-      learningRate: 0.0005,
-      privacyBudget: 2.0
-    }
-  }
+    name: 'Secure ResNet',
+    type: 'Computer Vision',
+    accuracy: '92.8%',
+    privacyScore: '99%',
+    status: 'Training',
+    lastTrained: '2024-01-17',
+  },
+  // Add more models as needed
 ];
 
-export const ModelsPage: React.FC = () => {
-  const navigate = useNavigate();
-  const [models] = useState<Model[]>(MOCK_MODELS);
-
-  const getStatusColor = (status: Model['status']) => {
-    switch (status) {
-      case 'ready': return 'bg-green-100 text-green-800';
-      case 'training': return 'bg-blue-100 text-blue-800';
-      case 'failed': return 'bg-red-100 text-red-800';
-      case 'stopped': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const columns = [
-    {
-      key: 'name',
-      title: 'Model Name',
-      render: (value: string, model: Model) => (
-        <div>
-          <div className="font-medium text-gray-900">{value}</div>
-          <div className="text-sm text-gray-500">{model.description}</div>
-        </div>
-      )
-    },
-    {
-      key: 'projectName',
-      title: 'Project',
-      render: (value: string, model: Model) => (
-        <a
-          href={`/projects/${model.projectId}`}
-          className="text-primary hover:text-primary-dark"
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/projects/${model.projectId}`);
-          }}
-        >
-          {value}
-        </a>
-      )
-    },
-    {
-      key: 'status',
-      title: 'Status',
-      render: (value: Model['status']) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(value)}`}>
-          {value.charAt(0).toUpperCase() + value.slice(1)}
-        </span>
-      )
-    },
-    {
-      key: 'accuracy',
-      title: 'Accuracy',
-      render: (value: number) => `${(value * 100).toFixed(1)}%`
-    },
-    {
-      key: 'privacyScore',
-      title: 'Privacy Score',
-      render: (value: number) => (
-        <div className="flex items-center">
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-            value >= 0.9 ? 'bg-green-100 text-green-800' :
-            value >= 0.7 ? 'bg-yellow-100 text-yellow-800' :
-            'bg-red-100 text-red-800'
-          }`}>
-            {(value * 100).toFixed(1)}%
-          </span>
-        </div>
-      )
-    },
-    {
-      key: 'actions',
-      title: '',
-      render: (_: any, model: Model) => (
-        <div className="flex justify-end space-x-2">
-          <button
-            className="text-sm text-primary hover:text-primary-dark"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/models/${model.id}`);
-            }}
-          >
-            View
-          </button>
-          {model.status === 'training' && (
-            <button
-              className="text-sm text-red-600 hover:text-red-800"
-              onClick={(e) => {
-                e.stopPropagation();
-                console.log('Stop training:', model.id);
-              }}
-            >
-              Stop
-            </button>
-          )}
-        </div>
-      )
-    }
-  ];
-
+export const Models: React.FC = () => {
   return (
-    <Container>
-      <div className="py-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Models</h1>
-          <button
-            className="btn btn-primary"
-            onClick={() => navigate('/models/new')}
-          >
-            Train New Model
-          </button>
-        </div>
+    <div>
+      <div className="mb-8">
+        <h1 className="text-2xl font-semibold text-gray-900">Models</h1>
+        <p className="mt-2 text-sm text-gray-700">
+          Manage your privacy-preserving AI models
+        </p>
+      </div>
 
-        <Card className="bg-white overflow-hidden">
-          <div className="p-6">
-            <Table
-              data={models}
-              columns={columns}
-              onRowClick={(model) => navigate(`/models/${model.id}`)}
-            />
-          </div>
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {models.map((model) => (
+          <Card key={model.id} className="hover:shadow-lg transition-shadow duration-200">
+            <div className="p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <ChartBarIcon className="h-6 w-6 text-gray-400" aria-hidden="true" />
+                </div>
+                <div className="ml-4">
+                  <h3 className="text-lg font-medium text-gray-900">
+                    {model.name}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {model.type}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Accuracy</p>
+                  <p className="mt-1 text-lg font-semibold text-gray-900">
+                    {model.accuracy}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Privacy Score</p>
+                  <div className="flex items-center mt-1">
+                    <ShieldCheckIcon className="h-5 w-5 text-green-500 mr-1" />
+                    <p className="text-lg font-semibold text-gray-900">
+                      {model.privacyScore}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className={`
+                    inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                    ${
+                      model.status === 'Deployed'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-yellow-100 text-yellow-800'
+                    }
+                  `}>
+                    {model.status}
+                  </span>
+                  <span className="text-gray-500">
+                    Last trained {model.lastTrained}
+                  </span>
+                </div>
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    className="text-sm font-medium text-blue-600 hover:text-blue-500"
+                  >
+                    View details
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        ))}
+
+        {/* Train New Model Card */}
+        <Card className="hover:shadow-lg transition-shadow duration-200 border-2 border-dashed border-gray-300 p-6">
+          <button
+            type="button"
+            className="relative block w-full h-full rounded-lg p-12 text-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
+            <ChartBarIcon className="mx-auto h-12 w-12 text-gray-400" />
+            <span className="mt-2 block text-sm font-medium text-gray-900">
+              Train a new model
+            </span>
+          </button>
         </Card>
       </div>
-    </Container>
+    </div>
   );
 };
