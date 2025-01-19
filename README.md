@@ -128,10 +128,10 @@ npm run build
 
 ## Documentation
 
-- [API Documentation](docs/API.md)
-- [Architecture Design](docs/ARCHITECTURE.md)
-- [Deployment Guide](docs/DEPLOYMENT.md)
-- [Development Guide](docs/DEVELOPMENT.md)
+- [API Documentation](https://github.com/ciphernx/Cipher-Nexus/blob/main/docs/API.md)
+- [Architecture Design](https://github.com/ciphernx/Cipher-Nexus/blob/main/docs/ARCHITECTURE.md)
+- [Deployment Guide](https://github.com/ciphernx/Cipher-Nexus/blob/main/docs/DEPLOYMENT.md)
+- [Development Guide](https://github.com/ciphernx/Cipher-Nexus/blob/main/docs/DEVELOPMENT.md)
 
 ## License
 
