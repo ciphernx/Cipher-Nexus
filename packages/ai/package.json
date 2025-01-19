@@ -1,6 +1,11 @@
 {
   "name": "@ciphernx/ai",
   "version": "0.1.0",
+  "private": false,
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/",
+    "access": "public"
+  },
   "description": "AI module integrating cryptographic and protocol functionalities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

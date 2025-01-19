@@ -1,103 +1,142 @@
 # Cipher Nexus
 
-<div align="center">
-  <img src="docs/assets/logo.svg" width="200" height="200" alt="Cipher Nexus Logo">
-  <h1>Where Privacy Meets Intelligence</h1>
-  <p><em>Empowering Privacy in the AI Era</em></p>
-</div>
+A privacy-preserving federated learning framework with secure data marketplace.
 
-## Overview
+隐私保护联邦学习框架，集成安全数据市场。
 
-Cipher Nexus is a groundbreaking privacy-first AI protocol that combines advanced cryptography with artificial intelligence to create a secure and private environment for AI model training and deployment.
+[English](#english) | [中文](#chinese)
+
+## English
+
+### Overview
+
+Cipher Nexus is a comprehensive framework that combines federated learning with privacy-preserving computing and secure data marketplace capabilities. It enables collaborative machine learning while ensuring data privacy and security.
 
 ### Core Features
 
-- **Privacy-First AI Protocol (PFAP)**
-  - Homomorphic Encryption (FHE)
-  - Zero-Knowledge Proofs (ZKP)
-  - Secure Multi-Party Computation (MPC)
+- **Federated Learning Protocol**: Secure distributed training with model aggregation
+- **Privacy Computing**: Differential privacy, homomorphic encryption, and zero-knowledge proofs
+- **Trusted Execution Environment**: Secure enclave for sensitive computations
+- **Data Marketplace**: Tokenized data assets with access control
+- **Token Economy**: Incentive mechanism for data sharing and model training
 
-- **Decentralized Privacy Computing Infrastructure**
-  - Trusted Execution Environment (TEE)
-  - Distributed AI Training
-  - Privacy-Preserving Model Exchange
+### Architecture
 
-- **Innovative Token Economics**
-  - Protocol Token for governance
-  - Data Token for asset tokenization
-  - Compute Token for resource allocation
-
-## Technical Architecture
-
-```plaintext
-Layer 0: Cryptography Foundation
-├── Homomorphic Encryption
-├── Zero-Knowledge Proofs
-└── Secure Multi-Party Computation
-
-Layer 1: Privacy Computing Infrastructure
-├── Decentralized Network
-├── TEE Environment
-└── Distributed Training
-
-Layer 2: AI Protocol
-├── Federated Learning
-├── Private Model Training
-└── Encrypted Data Marketplace
+```mermaid
+graph TD
+    A[Client Node] -->|Model Updates| B[Infrastructure Manager]
+    B --> C[Resource Manager]
+    B --> D[Task Scheduler]
+    B --> E[Privacy Manager]
+    
+    F[Data Provider] -->|Data Assets| G[Data Marketplace]
+    G --> H[Token Contract]
+    G --> I[Access Control]
+    
+    J[Model Training] -->|Encrypted Updates| K[Federated Coordinator]
+    K --> L[Model Aggregator]
+    K --> M[Privacy Computing]
+    
+    N[TEE Manager] -->|Secure Execution| O[Compute Node]
+    O --> P[Resource Monitor]
+    O --> Q[State Manager]
 ```
 
-## Getting Started
+### Modules
 
-### Prerequisites
+- `@ciphernx/ai`: Federated learning and model management
+- `@ciphernx/core`: Infrastructure and resource management
+- `@ciphernx/crypto`: Cryptographic primitives and protocols
+- `@ciphernx/protocol`: Network protocols and data marketplace
+- `@ciphernx/ui`: User interface components
 
-- Node.js >= 18
-- Docker
-- PostgreSQL
-- Redis
+## Chinese
 
-### Installation
+### 概述
 
-1. Clone the repository:
-```bash
-git clone https://github.com/ciphernx/Cipher-Nexus.git
-cd Cipher-Nexus
+Cipher Nexus 是一个综合性框架，将联邦学习与隐私计算和安全数据市场功能相结合。它能够在确保数据隐私和安全的同时实现协作机器学习。
+
+### 核心功能
+
+- **联邦学习协议**：安全的分布式训练和模型聚合
+- **隐私计算**：差分隐私、同态加密和零知识证明
+- **可信执行环境**：敏感计算的安全飞地
+- **数据市场**：带访问控制的通证化数据资产
+- **代币经济**：数据共享和模型训练的激励机制
+
+### 系统架构
+
+```mermaid
+graph TD
+    A[客户端节点] -->|模型更新| B[基础设施管理器]
+    B --> C[资源管理器]
+    B --> D[任务调度器]
+    B --> E[隐私管理器]
+    
+    F[数据提供方] -->|数据资产| G[数据市场]
+    G --> H[代币合约]
+    G --> I[访问控制]
+    
+    J[模型训练] -->|加密更新| K[联邦协调器]
+    K --> L[模型聚合器]
+    K --> M[隐私计算]
+    
+    N[TEE管理器] -->|安全执行| O[计算节点]
+    O --> P[资源监控]
+    O --> Q[状态管理]
 ```
 
-2. Install dependencies:
+### 模块说明
+
+- `@ciphernx/ai`: 联邦学习和模型管理
+  - 实现联邦学习协议
+  - 模型训练和聚合
+  - 隐私保护机制
+  
+- `@ciphernx/core`: 基础设施和资源管理
+  - 计算节点管理
+  - 资源分配
+  - 任务调度
+  
+- `@ciphernx/crypto`: 密码学原语和协议
+  - 同态加密
+  - 零知识证明
+  - 安全多方计算
+  
+- `@ciphernx/protocol`: 网络协议和数据市场
+  - 数据资产管理
+  - 访问控制
+  - 交易处理
+  
+- `@ciphernx/ui`: 用户界面组件
+  - 数据集管理
+  - 模型训练监控
+  - 系统管理界面
+
+### 快速开始
+
+1. 安装依赖
 ```bash
 npm install
 ```
 
-3. Set up environment:
+2. 启动开发服务器
 ```bash
-cp .env.example .env
-# Edit .env with your configurations
-```
-
-4. Start development environment:
-```bash
-docker-compose up -d
 npm run dev
 ```
 
-## Project Structure
-
-```
-cipher-nexus/
-├── packages/
-│   ├── core/        # Core cryptographic primitives
-│   ├── protocol/    # PFAP protocol implementation
-│   ├── crypto/      # Cryptography utilities
-│   ├── ai/          # AI/ML components
-│   └── ui/          # Web interface
-├── docs/            # Documentation
-└── tests/           # Test suites
+3. 构建项目
+```bash
+npm run build
 ```
 
-## Contributing
+### 文档
 
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+- [API 文档](docs/API.md)
+- [架构设计](docs/ARCHITECTURE.md)
+- [部署指南](docs/DEPLOYMENT.md)
+- [开发指南](docs/DEVELOPMENT.md)
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
+MIT License 

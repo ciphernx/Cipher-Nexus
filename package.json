@@ -1,7 +1,15 @@
 {
-  "name": "cipher-nexus",
+  "name": "@ciphernx/core",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/",
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ciphernx/Cipher-Nexus.git"
+  },
   "workspaces": [
     "packages/*"
   ],
