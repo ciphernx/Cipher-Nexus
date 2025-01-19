@@ -1,0 +1,20 @@
+build:protocol:
+  stage: build
+  script:
+    - cd packages/protocol
+    - npm run build
+  artifacts:
+    paths:
+      - packages/protocol/dist/
+
+test:protocol:
+  stage: test
+  script:
+    - cd packages/protocol
+    - npm run test:coverage
+  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: packages/protocol/coverage/cobertura-coverage.xml 

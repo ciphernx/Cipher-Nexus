@@ -1,147 +1,254 @@
-# Cipher Nexus Technical Architecture
+# Cipher Nexus Architecture Documentation
 
-## Overview
+## System Architecture
 
-Cipher Nexus implements a layered architecture for privacy-preserving AI computations, combining advanced cryptography with distributed systems and artificial intelligence.
-
-## Layer 0: Cryptography Foundation
-
-### Homomorphic Encryption (FHE)
-- Implementation using SEAL library
-- Support for both partial and fully homomorphic encryption
-- Optimized for AI operations
-
-### Zero-Knowledge Proofs (ZKP)
-- SNARKs for training verification
-- Proof of Training Integrity (PoTI)
-- Circuit optimization for AI operations
-
-### Secure Multi-Party Computation (MPC)
-- Threshold encryption schemes
-- Secret sharing protocols
-- Secure aggregation protocols
-
-## Layer 1: Privacy Computing Infrastructure
-
-### Decentralized Network
-```plaintext
-┌─────────────────┐     ┌─────────────────┐
-│   Compute Node  │ ←→  │  Storage Node   │
-└────────┬────────┘     └────────┬────────┘
-         ↑                       ↑
-         └───────────┬──────────┘
-                     ↓
-            ┌─────────────────┐
-            │  Control Plane  │
-            └─────────────────┘
+### Overall Architecture
+```
++------------------+     +------------------+     +------------------+
+|    Data Market   |     |    Compute      |     |    Storage      |
++------------------+     +------------------+     +------------------+
+         ↑                      ↑                        ↑
+         |                      |                        |
+         ↓                      ↓                        ↓
++------------------+     +------------------+     +------------------+
+| Privacy Computing|     |   Consensus     |     |    Network      |
++------------------+     +------------------+     +------------------+
+         ↑                      ↑                        ↑
+         |                      |                        |
+         ↓                      ↓                        ↓
++------------------+     +------------------+     +------------------+
+|    Security      |     |    Protocol     |     | Infrastructure  |
++------------------+     +------------------+     +------------------+
 ```
 
-### TEE Environment
-- Intel SGX integration
+## Core Components
+
+### 1. Token System
+
+#### TokenContract
+- Basic token functionality
+- Balance management
+- Authorization mechanism
+- Locking mechanism
+- Event system
+
+```typescript
+class TokenContract {
+  // State management
+  private balances: Map<string, TokenBalance>
+  private allowances: Map<string, TokenAllowance[]>
+  
+  // Core functionality
+  transfer(): Promise<boolean>
+  approve(): Promise<boolean>
+  lock(): Promise<boolean>
+  mint(): Promise<boolean>
+}
+```
+
+#### TokenEconomyManager
+- Staking mechanism
+- Reward distribution
+- Governance system
+- Proposal management
+
+```typescript
+class TokenEconomyManager {
+  // State management
+  private stakingPositions: Map<string, StakingPosition>
+  private proposals: Map<string, GovernanceProposal>
+  
+  // Core functionality
+  stake(): Promise<boolean>
+  claimRewards(): Promise<bigint>
+  createProposal(): Promise<string>
+  vote(): Promise<boolean>
+}
+```
+
+### 2. TEE Environment (Trusted Execution Environment)
+
+#### TrustedExecutionManager
+- Enclave lifecycle management
 - Remote attestation
-- Secure enclaves for computation
+- Code integrity verification
+- Secure execution environment
 
-### Distributed Training
-- Federated learning protocols
-- Secure model aggregation
-- Privacy-preserving gradient sharing
-
-## Layer 2: AI Protocol
-
-### Federated Learning
-```plaintext
-Client                    Server
-  │                         │
-  ├─── Request Model ─────→│
-  │                         │
-  │←── Download Model ─────┤
-  │                         │
-  ├─── Local Training ────→│
-  │                         │
-  │←── Aggregate Updates ──┤
+```typescript
+class TrustedExecutionManager {
+  // State management
+  private enclaves: Map<string, EnclaveState>
+  private configs: Map<string, EnclaveConfig>
+  
+  // Core functionality
+  initializeEnclave(): Promise<string>
+  executeInEnclave(): Promise<any>
+  verifyAttestation(): Promise<AttestationResult>
+}
 ```
 
-### Private Model Training
-- Encrypted training data
-- Secure model updates
-- Privacy budget management
+#### TrustedExecutionService
+- TEE environment management
+- Execution result verification
+- Resource statistics
+- Event handling
 
-### Encrypted Data Marketplace
-- Data tokenization
+```typescript
+class TrustedExecutionService {
+  // State management
+  private manager: TrustedExecutionManager
+  private stats: TEEStats
+  
+  // Core functionality
+  createEnclave(): Promise<string>
+  executeCode(): Promise<ExecutionResult>
+  getStats(): Promise<TEEStats>
+}
+```
+
+### 3. Data Marketplace
+
+#### DataMarketplace
+- Asset management
+- Transaction processing
 - Access control
-- Value assessment
+- Pricing mechanism
 
-## Token Economics
-
-### Protocol Token
-- Governance rights
-- Network security
-- Staking mechanisms
-
-### Data Token
-- Data asset representation
-- Trading mechanisms
-- Composability features
-
-### Compute Token
-- Resource allocation
-- Computation pricing
-- Incentive mechanisms
-
-## Security Considerations
-
-### Privacy Guarantees
-- k-anonymity
-- Differential privacy
-- Information flow control
-
-### Attack Vectors
-- Model inversion
-- Membership inference
-- Gradient leakage
-
-### Mitigation Strategies
-- Noise injection
-- Gradient clipping
-- Secure aggregation
-
-## Implementation Details
-
-### Core Components
-```plaintext
-packages/
-├── core/
-│   ├── crypto/         # Cryptographic primitives
-│   ├── network/        # P2P networking
-│   └── consensus/      # Consensus mechanisms
-├── protocol/
-│   ├── training/       # Training protocols
-│   ├── verification/   # Proof systems
-│   └── marketplace/    # Data exchange
-└── ai/
-    ├── models/         # AI model implementations
-    ├── training/       # Training algorithms
-    └── inference/      # Secure inference
+```typescript
+class DataMarketplace {
+  // State management
+  private assets: Map<string, DataAsset>
+  private tokens: Map<string, DataToken>
+  private accessRequests: Map<string, AccessRequest>
+  
+  // Core functionality
+  listAsset(): Promise<string>
+  purchaseAccess(): Promise<void>
+  requestAccess(): Promise<string>
+}
 ```
 
-### Key Interfaces
-- Training protocol APIs
-- Model exchange protocols
-- Data marketplace interfaces
+#### DataMarketplaceService
+- Market service layer
+- Search and filtering
+- Statistical analysis
+- Metadata management
 
-### Performance Optimizations
+```typescript
+class DataMarketplaceService {
+  // State management
+  private marketplace: DataMarketplace
+  
+  // Core functionality
+  searchAssets(): Promise<{assets: any[], total: number}>
+  getMarketplaceStats(): Promise<MarketplaceStats>
+  updateAssetMetadata(): Promise<void>
+}
+```
+
+## Data Flow
+
+### 1. Token Transfer Flow
+```
+User → TokenContract.transfer() → Update Balance → Emit Event → Update Stats
+```
+
+### 2. Staking Flow
+```
+User → TokenEconomyManager.stake() → Lock Tokens → Create Staking Position → Emit Event
+```
+
+### 3. Proposal Flow
+```
+Create Proposal → Voting Period → Count Votes → Execute Proposal → Update State
+```
+
+### 4. TEE Execution Flow
+```
+Initialize Environment → Remote Attestation → Code Execution → Result Verification → Environment Cleanup
+```
+
+### 5. Data Transaction Flow
+```
+List Asset → Purchase Request → Access Control → Data Delivery → Update State
+```
+
+## Security Mechanisms
+
+### 1. Token Security
+- Balance checks
+- Authorization control
+- Locking mechanism
+- Event tracking
+
+### 2. TEE Security
+- Remote attestation
+- Code verification
+- Memory encryption
+- Secure communication
+
+### 3. Data Security
+- Access control
+- Encrypted storage
+- Permission management
+- Audit logging
+
+## Extensibility Design
+
+### 1. Modularity
+- Independent functional modules
+- Clear interface definitions
+- Pluggable components
+- Flexible configuration
+
+### 2. Event System
+- Asynchronous processing
+- Decoupled communication
+- State synchronization
+- Monitoring and alerts
+
+### 3. Upgrade Mechanism
+- Version control
+- Smooth upgrades
+- Backward compatibility
+- Emergency rollback
+
+## Performance Optimization
+
+### 1. Caching Strategy
+- Memory cache
+- State cache
+- Query cache
+- Result cache
+
+### 2. Concurrent Processing
+- Asynchronous operations
+- Parallel execution
 - Batch processing
-- Parallel computation
-- Network optimization
+- Queue management
 
-## Future Developments
+### 3. Resource Management
+- Memory management
+- Connection pool
+- Thread control
+- Load balancing
 
-### Planned Features
-- Cross-chain integration
-- Advanced privacy primitives
-- Enhanced scalability solutions
+## Monitoring and Maintenance
 
-### Research Areas
-- Novel encryption schemes
-- Efficient ZKP systems
-- Advanced MPC protocols 
+### 1. System Monitoring
+- Performance metrics
+- Resource usage
+- Error logs
+- Security audits
+
+### 2. Operations Tools
+- Deployment scripts
+- Monitoring dashboard
+- Log analysis
+- Alert system
+
+### 3. Emergency Response
+- Fault detection
+- Automatic recovery
+- Degradation strategy
+- Backup mechanism 

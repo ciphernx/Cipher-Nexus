@@ -6,23 +6,25 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev -w @cipher-nexus/ui",
+    "dev": "npm run dev -w @ciphernx/ui",
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces",
-    "lint": "npm run lint --workspaces"
+    "lint": "npm run lint --workspaces",
+    "format": "npm run format --workspaces"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.1",
     "@tailwindcss/forms": "^0.5.10",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
-    "@typescript-eslint/eslint-plugin": "^6.16.0",
-    "@typescript-eslint/parser": "^6.16.0",
-    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^5.54.1",
+    "@typescript-eslint/parser": "^5.54.1",
+    "eslint": "^8.35.0",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
     "msw": "^2.7.0",
-    "typescript": "^5.3.3",
+    "prettier": "^2.8.4",
+    "typescript": "^5.0.0",
     "vitest": "^3.0.2"
   },
   "dependencies": {
