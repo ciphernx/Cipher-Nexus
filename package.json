@@ -1,6 +1,6 @@
 {
   "name": "@ciphernx/cipher-nexus",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "A privacy-preserving AI framework that enables secure federated learning and data marketplace, protecting data privacy while advancing AI capabilities.",
   "private": false,
   "public": true,
@@ -8,11 +8,17 @@
   "icon": "https://raw.githubusercontent.com/ciphernx/Cipher-Nexus/main/docs/assets/logo.svg",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com/",
-    "access": "public"
+    "access": "public",
+    "visibility": "public",
+    "permissions": {
+      "read": true,
+      "write": true
+    }
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ciphernx/Cipher-Nexus.git"
+    "url": "git+https://github.com/ciphernx/Cipher-Nexus.git",
+    "directory": "."
   },
   "workspaces": [
     "packages/*"
