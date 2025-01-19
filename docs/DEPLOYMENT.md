@@ -1,159 +1,159 @@
-# Cipher Nexus 部署指南
+# Cipher Nexus Deployment Guide
 
-## 环境要求
+## Environment Requirements
 
-### 硬件要求
-- CPU: 8核心以上
-- 内存: 16GB以上
-- 存储: 100GB以上SSD
-- 网络: 100Mbps以上带宽
+### Hardware Requirements
+- CPU: 8+ cores
+- Memory: 16GB+ RAM
+- Storage: 100GB+ SSD
+- Network: 100Mbps+ bandwidth
 
-### 软件要求
-- 操作系统: Ubuntu 20.04 LTS 或更高版本
-- Node.js: v16.x 或更高版本
-- Docker: 20.10.x 或更高版本
-- Docker Compose: v2.x 或更高版本
+### Software Requirements
+- Operating System: Ubuntu 20.04 LTS or higher
+- Node.js: v16.x or higher
+- Docker: 20.10.x or higher
+- Docker Compose: v2.x or higher
 
-### TEE环境要求
-- Intel SGX 支持的CPU
-- SGX驱动程序已安装
-- Intel SGX SDK已安装
-- Intel SGX PSW已安装
+### TEE Environment Requirements
+- Intel SGX supported CPU
+- SGX driver installed
+- Intel SGX SDK installed
+- Intel SGX PSW installed
 
-## 安装步骤
+## Installation Steps
 
-### 1. 系统准备
+### 1. System Preparation
 
 ```bash
-# 更新系统
+# Update system
 sudo apt-get update
 sudo apt-get upgrade -y
 
-# 安装基础工具
+# Install basic tools
 sudo apt-get install -y git curl wget build-essential
 ```
 
-### 2. 安装Node.js
+### 2. Install Node.js
 
 ```bash
-# 使用nvm安装Node.js
+# Install Node.js using nvm
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
 source ~/.bashrc
 nvm install 16
 nvm use 16
 ```
 
-### 3. 安装Docker
+### 3. Install Docker
 
 ```bash
-# 安装Docker
+# Install Docker
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 
-# 安装Docker Compose
+# Install Docker Compose
 sudo curl -L "https://github.com/docker/compose/releases/download/v2.5.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
 ```
 
-### 4. 安装Intel SGX
+### 4. Install Intel SGX
 
 ```bash
-# 安装SGX驱动
+# Install SGX driver
 wget https://download.01.org/intel-sgx/sgx-linux/2.15/distro/ubuntu20.04-server/sgx_linux_x64_driver_1.41.bin
 chmod +x sgx_linux_x64_driver_1.41.bin
 sudo ./sgx_linux_x64_driver_1.41.bin
 
-# 安装SGX SDK
+# Install SGX SDK
 wget https://download.01.org/intel-sgx/sgx-linux/2.15/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.15.100.3.bin
 chmod +x sgx_linux_x64_sdk_2.15.100.3.bin
 sudo ./sgx_linux_x64_sdk_2.15.100.3.bin
 
-# 安装SGX PSW
+# Install SGX PSW
 sudo apt-get install libsgx-launch libsgx-urts libsgx-epid libsgx-quote-ex
 ```
 
-### 5. 克隆项目
+### 5. Clone Project
 
 ```bash
 git clone https://github.com/your-org/cipher-nexus.git
 cd cipher-nexus
 ```
 
-### 6. 安装依赖
+### 6. Install Dependencies
 
 ```bash
-# 安装项目依赖
+# Install project dependencies
 npm install
 
-# 构建项目
+# Build project
 npm run build
 ```
 
-### 7. 配置环境变量
+### 7. Configure Environment Variables
 
-创建 `.env` 文件：
+Create `.env` file:
 
 ```env
-# 网络配置
+# Network Configuration
 PORT=3000
 HOST=0.0.0.0
 
-# 数据库配置
+# Database Configuration
 DB_HOST=localhost
 DB_PORT=5432
 DB_USER=cipher
 DB_PASS=your-password
 DB_NAME=cipher_nexus
 
-# TEE配置
+# TEE Configuration
 SGX_SPID=your-spid
 SGX_QUOTE_TYPE=0
 SGX_KEY_ID=your-key-id
 
-# 代币配置
+# Token Configuration
 TOKEN_SYMBOL=CNX
 TOKEN_NAME="Cipher Nexus Token"
 TOKEN_DECIMALS=18
 TOKEN_INITIAL_SUPPLY=1000000000
 
-# 安全配置
+# Security Configuration
 JWT_SECRET=your-jwt-secret
 ENCRYPTION_KEY=your-encryption-key
 ```
 
-### 8. 初始化数据库
+### 8. Initialize Database
 
 ```bash
-# 创建数据库
+# Create database
 npm run db:create
 
-# 运行迁移
+# Run migrations
 npm run db:migrate
 
-# 初始化数据
+# Initialize data
 npm run db:seed
 ```
 
-### 9. 启动服务
+### 9. Start Services
 
 ```bash
-# 开发环境
+# Development environment
 npm run dev
 
-# 生产环境
+# Production environment
 npm run start
 ```
 
-## 部署架构
+## Deployment Architecture
 
-### 单节点部署
+### Single Node Deployment
 ```
 +-------------+     +-------------+     +-------------+
 |   Nginx     | --> |   Node.js   | --> |  Database   |
 +-------------+     +-------------+     +-------------+
 ```
 
-### 集群部署
+### Cluster Deployment
 ```
                     +-------------+
                     |   HAProxy   |
@@ -170,36 +170,36 @@ npm run start
     +-------------+          +-------------+
 ```
 
-## 监控配置
+## Monitoring Configuration
 
-### 1. 系统监控
+### 1. System Monitoring
 
 ```bash
-# 安装Prometheus
+# Install Prometheus
 docker run -d \
   --name prometheus \
   -p 9090:9090 \
   -v /path/to/prometheus.yml:/etc/prometheus/prometheus.yml \
   prom/prometheus
 
-# 安装Grafana
+# Install Grafana
 docker run -d \
   --name grafana \
   -p 3000:3000 \
   grafana/grafana
 ```
 
-### 2. 日志管理
+### 2. Log Management
 
 ```bash
-# 安装ELK Stack
+# Install ELK Stack
 docker-compose -f elk-stack.yml up -d
 ```
 
-### 3. 告警配置
+### 3. Alert Configuration
 
 ```bash
-# 配置Alertmanager
+# Configure Alertmanager
 docker run -d \
   --name alertmanager \
   -p 9093:9093 \
@@ -207,112 +207,112 @@ docker run -d \
   prom/alertmanager
 ```
 
-## 安全配置
+## Security Configuration
 
-### 1. 防火墙设置
+### 1. Firewall Settings
 
 ```bash
-# 配置UFW
+# Configure UFW
 sudo ufw allow 22
 sudo ufw allow 80
 sudo ufw allow 443
 sudo ufw enable
 ```
 
-### 2. SSL配置
+### 2. SSL Configuration
 
 ```bash
-# 安装Certbot
+# Install Certbot
 sudo apt-get install certbot python3-certbot-nginx
 
-# 获取证书
+# Get certificate
 sudo certbot --nginx -d your-domain.com
 ```
 
-### 3. 权限设置
+### 3. Permission Settings
 
 ```bash
-# 设置文件权限
+# Set file permissions
 sudo chown -R node:node /path/to/app
 sudo chmod -R 755 /path/to/app
 ```
 
-## 维护指南
+## Maintenance Guide
 
-### 1. 备份
+### 1. Backup
 
 ```bash
-# 备份数据库
+# Backup database
 npm run db:backup
 
-# 备份配置
+# Backup configuration
 tar -czf config-backup.tar.gz config/
 ```
 
-### 2. 更新
+### 2. Update
 
 ```bash
-# 更新代码
+# Update code
 git pull origin main
 
-# 更新依赖
+# Update dependencies
 npm install
 
-# 重新构建
+# Rebuild project
 npm run build
 
-# 重启服务
+# Restart services
 npm run restart
 ```
 
-### 3. 回滚
+### 3. Rollback
 
 ```bash
-# 回滚代码
+# Rollback code
 git reset --hard <commit-hash>
 
-# 回滚数据库
+# Rollback database
 npm run db:rollback
 
-# 重启服务
+# Restart services
 npm run restart
 ```
 
-## 故障排除
+## Troubleshooting
 
-### 1. 日志查看
+### 1. Log Inspection
 
 ```bash
-# 查看应用日志
+# Check application logs
 npm run logs
 
-# 查看系统日志
+# Check system logs
 sudo journalctl -u cipher-nexus
 ```
 
-### 2. 健康检查
+### 2. Health Check
 
 ```bash
-# 检查服务状态
+# Check service status
 npm run health-check
 
-# 检查数据库连接
+# Check database connection
 npm run db:check
 ```
 
-### 3. 常见问题
+### 3. Common Issues
 
-- 服务无法启动
-  - 检查端口占用
-  - 检查环境变量
-  - 检查日志输出
+- Service startup failure
+  - Check port occupation
+  - Check environment variables
+  - Check log output
 
-- 性能问题
-  - 检查系统资源
-  - 检查数据库索引
-  - 检查缓存配置
+- Performance issues
+  - Check system resources
+  - Check database indexing
+  - Check cache configuration
 
-- 安全问题
-  - 检查防火墙规则
-  - 检查访问日志
-  - 检查权限设置 
+- Security issues
+  - Check firewall rules
+  - Check access logs
+  - Check permission settings 
