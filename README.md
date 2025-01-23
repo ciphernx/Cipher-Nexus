@@ -81,7 +81,7 @@ graph TD
   - Support for popular AI frameworks
   - Secure model serving and inference
   
-- `@ciphernx/core`: Infrastructure and resource management
+- `@cipher-nexus/core`: Infrastructure and resource management
   - Compute node management
   - Resource allocation
   - Task scheduling

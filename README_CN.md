@@ -81,7 +81,7 @@ graph TD
   - 支持主流 AI 框架
   - 安全模型服务和推理
   
-- `@ciphernx/core`: 基础设施和资源管理
+- `@cipher-nexus/core`: 基础设施和资源管理
   - 计算节点管理
   - 资源分配
   - 任务调度

@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package node;
+
+service NodeService {
+  rpc Join (JoinRequest) returns (JoinResponse);
+  rpc Heartbeat (HeartbeatRequest) returns (HeartbeatResponse);
+  rpc SendAlert (AlertMessage) returns (Empty);
+  rpc SendZone (ZoneMessage) returns (Empty);
+  rpc GetZones (GetZonesRequest) returns (GetZonesResponse);
+}
+
+message Empty {}
+
+message NodeMessage {
+  string id = 1;
+  string host = 2;
+  int32 port = 3;
+  string role = 4;
+  string status = 5;
+  int64 last_heartbeat = 6;
+  repeated string capabilities = 7;
+}
+
+message JoinRequest {
+  NodeMessage node = 1;
+}
+
+message JoinResponse {
+  repeated NodeMessage nodes = 1;
+}
+
+message HeartbeatRequest {
+  string node_id = 1;
+  int64 timestamp = 2;
+}
+
+message HeartbeatResponse {}
+
+message AlertMessage {
+  string id = 1;
+  string type = 2;
+  string severity = 3;
+  double confidence = 4;
+  int64 timestamp = 5;
+  map<string, string> context = 6;
+}
+
+message ZoneMessage {
+  string id = 1;
+  repeated string nodes = 2;
+  repeated Rule rules = 3;
+  AlertPolicy alert_policy = 4;
+
+  message Rule {
+    string id = 1;
+    string type = 2;
+    string severity = 3;
+    repeated string actions = 4;
+    repeated string conditions = 5;
+  }
+
+  message AlertPolicy {
+    double min_confidence = 1;
+    double consensus_threshold = 2;
+    int64 time_window = 3;
+    repeated string correlation_rules = 4;
+  }
+}
+
+message GetZonesRequest {
+  string node_id = 1;
+  int64 timestamp = 2;
+}
+
+message GetZonesResponse {
+  repeated ZoneMessage zones = 1;
+} 

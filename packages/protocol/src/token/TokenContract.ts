@@ -59,7 +59,7 @@ export class TokenContract extends EventEmitter {
       marketCap: 0n
     };
 
-    // 初始化创建者余额
+    // Initialize creator balance
     this.balances.set(owner, {
       address: owner,
       amount: initialSupply,
@@ -99,22 +99,22 @@ export class TokenContract extends EventEmitter {
     amount: bigint
   ): Promise<boolean> {
     try {
-      // 检查余额
+      // Check balance
       const fromBalance = this.balances.get(from);
       if (!fromBalance || fromBalance.amount < amount) {
         throw new Error('Insufficient balance');
       }
 
-      // 检查锁定金额
+      // Check locked amount
       if (fromBalance.amount - fromBalance.locked < amount) {
         throw new Error('Funds locked');
       }
 
-      // 更新发送方余额
+      // Update sender balance
       fromBalance.amount -= amount;
       fromBalance.lastUpdated = new Date();
 
-      // 更新接收方余额
+      // Update recipient balance
       let toBalance = this.balances.get(to);
       if (!toBalance) {
         toBalance = {
@@ -128,11 +128,11 @@ export class TokenContract extends EventEmitter {
       toBalance.amount += amount;
       toBalance.lastUpdated = new Date();
 
-      // 保存更新
+      // Save updates
       this.balances.set(from, fromBalance);
       this.balances.set(to, toBalance);
 
-      // 更新指标
+      // Update metrics
       this.metrics.transactions++;
       this.metrics.volume += amount;
 
@@ -200,16 +200,16 @@ export class TokenContract extends EventEmitter {
     amount: bigint
   ): Promise<boolean> {
     try {
-      // 检查授权
+      // Check allowance
       const allowance = this.getAllowance(from, spender);
       if (allowance < amount) {
         throw new Error('Insufficient allowance');
       }
 
-      // 执行转账
+      // Execute transfer
       await this.transfer(from, to, amount);
 
-      // 更新授权
+      // Update allowance
       const ownerAllowances = this.allowances.get(from) || [];
       const allowanceIndex = ownerAllowances.findIndex(a => a.spender === spender);
       if (allowanceIndex >= 0) {

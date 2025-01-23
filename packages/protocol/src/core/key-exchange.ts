@@ -1,5 +1,6 @@
+/// <reference types="node" />
 import { Buffer } from 'buffer';
-import { Curve25519, HKDF } from '@ciphernx/crypto';
+import { Curve25519, HKDF } from '@cipher-nexus/core';
 import { BaseProtocol } from './base';
 import { Message, Session, ProtocolErrorType } from './types';
 

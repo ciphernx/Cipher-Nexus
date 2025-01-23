@@ -30,19 +30,19 @@ export interface DatasetPreview {
 }
 
 export const datasetService = {
-  // 获取数据集详情
+  // Get dataset details
   async getDataset(id: string): Promise<Dataset> {
     const response = await axios.get(`${API_BASE_URL}/${id}`);
     return response.data;
   },
 
-  // 获取数据集统计信息
+  // Get dataset statistics
   async getDatasetStats(id: string): Promise<DatasetStats> {
     const response = await axios.get(`${API_BASE_URL}/${id}/stats`);
     return response.data;
   },
 
-  // 获取数据集预览数据
+  // Get dataset preview data
   async getDatasetPreview(id: string, page: number, pageSize: number): Promise<DatasetPreview> {
     const response = await axios.get(`${API_BASE_URL}/${id}/preview`, {
       params: { page, pageSize },
@@ -50,17 +50,12 @@ export const datasetService = {
     return response.data;
   },
 
-  // 加密数据集
-  async encryptDataset(id: string, options?: { algorithm?: string; keySize?: number }): Promise<void> {
-    await axios.post(`${API_BASE_URL}/${id}/encrypt`, options);
-  },
-
-  // 删除数据集
+  // Delete dataset
   async deleteDataset(id: string): Promise<void> {
     await axios.delete(`${API_BASE_URL}/${id}`);
   },
 
-  // 导出数据集
+  // Export dataset
   async exportDataset(id: string, format: 'csv' | 'json' | 'excel'): Promise<Blob> {
     const response = await axios.get(`${API_BASE_URL}/${id}/export`, {
       params: { format },
@@ -69,7 +64,7 @@ export const datasetService = {
     return response.data;
   },
 
-  // 获取数据集分析结果
+  // Get dataset analysis results
   async getDatasetAnalysis(id: string): Promise<{
     correlations: Array<{ field1: string; field2: string; score: number }>;
     distributions: Array<{ field: string; distribution: Array<{ value: string; count: number }> }>;

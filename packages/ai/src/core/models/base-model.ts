@@ -1,5 +1,6 @@
+import { Buffer } from 'buffer';
 import { ModelConfig, ModelState, TrainingConfig, PredictionResult, ModelMetrics } from '../types';
-import { AES } from '@ciphernx/crypto';
+import { AES } from '@cipher-nexus/core';
 import { MPCProtocol } from '@ciphernx/protocol';
 
 export abstract class BaseModel {
@@ -24,13 +25,13 @@ export abstract class BaseModel {
     }
   }
 
-  abstract async load(): Promise<void>;
+  abstract load(): Promise<void>;
   
-  abstract async train(data: number[][], labels: number[][], config: TrainingConfig): Promise<ModelMetrics>;
+  abstract train(data: number[][], labels: number[][], config: TrainingConfig): Promise<ModelMetrics>;
   
-  abstract async predict(input: number[]): Promise<PredictionResult>;
+  abstract predict(input: number[]): Promise<PredictionResult>;
   
-  abstract async save(path: string): Promise<void>;
+  abstract save(path: string): Promise<void>;
 
   protected async encryptData(data: number[][]): Promise<Buffer> {
     if (!this.encryptionService) {
