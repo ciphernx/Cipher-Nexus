@@ -28,6 +28,8 @@
     "@tailwindcss/forms": "^0.5.10",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
+    "@types/node": "^20.11.0",
+    "@types/events": "^3.0.3",
     "@typescript-eslint/eslint-plugin": "^5.54.1",
     "@typescript-eslint/parser": "^5.54.1",
     "eslint": "^8.35.0",
@@ -43,6 +45,8 @@
     "@heroicons/react": "^2.2.0",
     "@tanstack/react-query": "^5.64.2",
     "@tanstack/react-query-devtools": "^5.64.2",
-    "recharts": "^2.15.0"
+    "recharts": "^2.15.0",
+    "systeminformation": "^5.21.22",
+    "node-nvidia-smi": "^1.0.0"
   }
 }
