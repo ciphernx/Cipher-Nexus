@@ -1,342 +1,259 @@
-import { DataMarketplace } from './DataMarketplace';
-import { DifferentialPrivacy } from '../core/privacy/DifferentialPrivacy';
-import { HomomorphicEncryption } from '../core/privacy/HomomorphicEncryption';
+import { EventEmitter } from 'events';
+import { TokenContract } from '../token/TokenContract';
+import { AssetRegistry, RegisteredAsset } from './AssetRegistry';
+import { OrderMatcher, Order } from './OrderMatcher';
+import { AccessManager } from './AccessManager';
+import { PriceOracle } from './PriceOracle';
+import { QualityAssessor } from './QualityAssessor';
+import { MarketPaymentIntegrator } from './MarketPaymentIntegrator';
+import { IncentiveManager } from './IncentiveManager';
 
 interface MarketplaceStats {
   totalAssets: number;
-  totalVolume: number;
-  activeTraders: number;
+  totalOrders: number;
+  totalVolume: bigint;
+  activeUsers: number;
   averagePrice: number;
-  topCategories: Array<{
-    type: string;
-    count: number;
-  }>;
 }
 
 interface SearchFilters {
-  type?: string[];
-  priceRange?: {
-    min: number;
-    max: number;
-  };
-  privacyScore?: number;
-  status?: string[];
+  category?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  minQuality?: number;
   owner?: string;
 }
 
 interface SortOptions {
-  field: 'price' | 'privacyScore' | 'lastUpdated' | 'recordCount';
-  order: 'asc' | 'desc';
+  field: 'price' | 'quality' | 'timestamp';
+  direction: 'asc' | 'desc';
 }
 
-export class DataMarketplaceService {
-  private marketplace: DataMarketplace;
-  private differentialPrivacy: DifferentialPrivacy;
-  private homomorphicEncryption: HomomorphicEncryption;
-
+export class DataMarketplaceService extends EventEmitter {
   constructor(
-    marketplace: DataMarketplace,
-    differentialPrivacy: DifferentialPrivacy,
-    homomorphicEncryption: HomomorphicEncryption
+    private assetRegistry: AssetRegistry,
+    private orderMatcher: OrderMatcher,
+    private accessManager: AccessManager,
+    private priceOracle: PriceOracle,
+    private qualityAssessor: QualityAssessor,
+    private tokenContract: TokenContract,
+    private paymentIntegrator: MarketPaymentIntegrator,
+    private incentiveManager: IncentiveManager
   ) {
-    this.marketplace = marketplace;
-    this.differentialPrivacy = differentialPrivacy;
-    this.homomorphicEncryption = homomorphicEncryption;
-
-    this.setupEventHandlers();
+    super();
   }
 
-  async listAsset(asset: any): Promise<string> {
+  async listAsset(
+    owner: string,
+    metadata: any,
+    price: number
+  ): Promise<string> {
     try {
-      // Validate asset data
-      this.validateAssetData(asset);
+      // Register asset
+      const assetId = await this.assetRegistry.registerAsset(owner, metadata);
 
-      // Calculate data quality metrics
-      const quality = await this.calculateDataQuality(asset);
+      // Assess quality
+      const quality = await this.qualityAssessor.assessQuality(assetId);
 
-      // Prepare asset with quality metrics
-      const assetWithQuality = {
-        ...asset,
-        metadata: {
-          ...asset.metadata,
-          quality
-        }
-      };
+      // Create sell order
+      const order = await this.orderMatcher.createSellOrder(
+        owner,
+        assetId,
+        price,
+        1 // quantity
+      );
 
-      // List asset in marketplace
-      const assetId = await this.marketplace.listAsset(assetWithQuality);
+      this.emit('assetListed', {
+        assetId,
+        owner,
+        price,
+        quality,
+        timestamp: new Date()
+      });
 
       return assetId;
     } catch (error) {
-      console.error('Failed to list asset:', error);
+      this.emit('error', error);
+      throw error;
+    }
+  }
+
+  async purchaseAsset(
+    buyer: string,
+    assetId: string
+  ): Promise<string> {
+    try {
+      const asset = await this.assetRegistry.getAsset(assetId);
+      if (!asset) {
+        throw new Error('Asset not found');
+      }
+
+      // Get sell order
+      const sellOrder = await this.orderMatcher.getBestSellOrder(assetId);
+      if (!sellOrder) {
+        throw new Error('No sell order available');
+      }
+
+      // Create and match buy order
+      const buyOrder = await this.orderMatcher.createBuyOrder(
+        buyer,
+        assetId,
+        sellOrder.price,
+        1 // quantity
+      );
+
+      // Process payment
+      const transactionId = await this.paymentIntegrator.processPayment(
+        buyOrder,
+        asset
+      );
+
+      // Grant access
+      await this.accessManager.grantAccess(buyer, assetId);
+
+      // Release payment after access is granted
+      await this.paymentIntegrator.releasePayment(transactionId);
+
+      this.emit('assetPurchased', {
+        assetId,
+        buyer,
+        seller: asset.owner,
+        price: sellOrder.price,
+        transactionId,
+        timestamp: new Date()
+      });
+
+      return transactionId;
+    } catch (error) {
+      this.emit('error', error);
       throw error;
     }
   }
 
   async searchAssets(
     filters: SearchFilters,
-    sort: SortOptions,
-    page: number,
-    limit: number
-  ): Promise<{
-    assets: any[];
-    total: number;
-  }> {
+    sort?: SortOptions
+  ): Promise<RegisteredAsset[]> {
     try {
-      // Get all assets
-      const allAssets = Array.from(await this.getAllAssets());
+      let assets = await this.assetRegistry.listAssets();
 
       // Apply filters
-      let filteredAssets = this.applyFilters(allAssets, filters);
+      if (filters.category) {
+        assets = assets.filter(asset => asset.metadata.category === filters.category);
+      }
+      if (filters.minPrice !== undefined) {
+        assets = assets.filter(asset => {
+          const order = this.orderMatcher.getBestSellOrder(asset.id);
+          return order && order.price >= filters.minPrice!;
+        });
+      }
+      if (filters.maxPrice !== undefined) {
+        assets = assets.filter(asset => {
+          const order = this.orderMatcher.getBestSellOrder(asset.id);
+          return order && order.price <= filters.maxPrice!;
+        });
+      }
+      if (filters.minQuality !== undefined) {
+        assets = assets.filter(asset => {
+          const quality = this.qualityAssessor.getQualityScore(asset.id);
+          return quality >= filters.minQuality!;
+        });
+      }
+      if (filters.owner) {
+        assets = assets.filter(asset => asset.owner === filters.owner);
+      }
 
       // Apply sorting
-      filteredAssets = this.applySorting(filteredAssets, sort);
+      if (sort) {
+        assets.sort((a, b) => {
+          let valueA: number, valueB: number;
 
-      // Apply pagination
-      const start = (page - 1) * limit;
-      const paginatedAssets = filteredAssets.slice(start, start + limit);
+          switch (sort.field) {
+            case 'price':
+              const orderA = this.orderMatcher.getBestSellOrder(a.id);
+              const orderB = this.orderMatcher.getBestSellOrder(b.id);
+              valueA = orderA ? orderA.price : 0;
+              valueB = orderB ? orderB.price : 0;
+              break;
+            case 'quality':
+              valueA = this.qualityAssessor.getQualityScore(a.id);
+              valueB = this.qualityAssessor.getQualityScore(b.id);
+              break;
+            case 'timestamp':
+              valueA = a.createdAt.getTime();
+              valueB = b.createdAt.getTime();
+              break;
+            default:
+              return 0;
+          }
 
-      return {
-        assets: paginatedAssets,
-        total: filteredAssets.length
-      };
-    } catch (error) {
-      console.error('Failed to search assets:', error);
-      throw error;
-    }
-  }
-
-  async purchaseDataAccess(
-    assetId: string,
-    buyer: string,
-    amount: number
-  ): Promise<void> {
-    try {
-      // Verify asset exists and is available
-      const asset = await this.marketplace.getAsset(assetId);
-      if (!asset) {
-        throw new Error('Asset not found');
+          return sort.direction === 'asc' ? valueA - valueB : valueB - valueA;
+        });
       }
 
-      if (asset.status !== 'listed') {
-        throw new Error('Asset is not available for purchase');
-      }
-
-      // Process purchase
-      await this.marketplace.purchaseAccess(assetId, buyer, amount);
-
-      // Setup secure data access
-      await this.setupSecureAccess(assetId, buyer);
+      return assets;
     } catch (error) {
-      console.error('Failed to purchase access:', error);
+      this.emit('error', error);
       throw error;
     }
   }
 
   async getMarketplaceStats(): Promise<MarketplaceStats> {
     try {
-      const assets = Array.from(await this.getAllAssets());
+      const assets = await this.assetRegistry.listAssets();
+      const orders = await this.orderMatcher.listOrders();
+      
+      let totalVolume = 0n;
+      const uniqueUsers = new Set<string>();
+      let totalPrice = 0;
+      let priceCount = 0;
 
-      // Calculate statistics
-      const stats: MarketplaceStats = {
+      // Calculate stats
+      orders.forEach(order => {
+        if (order.status === 'filled') {
+          totalVolume += BigInt(Math.floor(order.price * order.quantity * 1e18));
+          uniqueUsers.add(order.maker);
+          totalPrice += order.price;
+          priceCount++;
+        }
+      });
+
+      return {
         totalAssets: assets.length,
-        totalVolume: 0,
-        activeTraders: new Set(assets.flatMap(a => a.accessControl.allowedUsers)).size,
-        averagePrice: 0,
-        topCategories: []
+        totalOrders: orders.length,
+        totalVolume,
+        activeUsers: uniqueUsers.size,
+        averagePrice: priceCount > 0 ? totalPrice / priceCount : 0
       };
-
-      // Calculate total volume and average price
-      const prices = assets.map(a => a.price);
-      stats.totalVolume = prices.reduce((sum, price) => sum + price, 0);
-      stats.averagePrice = stats.totalVolume / assets.length;
-
-      // Calculate top categories
-      const categoryCount = new Map<string, number>();
-      assets.forEach(asset => {
-        const count = categoryCount.get(asset.type) || 0;
-        categoryCount.set(asset.type, count + 1);
-      });
-
-      stats.topCategories = Array.from(categoryCount.entries())
-        .map(([type, count]) => ({ type, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
-
-      return stats;
     } catch (error) {
-      console.error('Failed to get marketplace stats:', error);
+      this.emit('error', error);
       throw error;
     }
   }
 
-  async updateAssetMetadata(
-    assetId: string,
-    updates: any
-  ): Promise<void> {
-    try {
-      // Verify asset exists
-      const asset = await this.marketplace.getAsset(assetId);
-      if (!asset) {
-        throw new Error('Asset not found');
-      }
-
-      // Update metadata
-      await this.marketplace.updateAsset(assetId, {
-        metadata: {
-          ...asset.metadata,
-          ...updates,
-          lastUpdated: new Date()
-        }
-      });
-    } catch (error) {
-      console.error('Failed to update asset metadata:', error);
-      throw error;
-    }
+  // Staking and rewards methods
+  async stakeTokens(
+    user: string,
+    amount: bigint,
+    lockPeriod?: number
+  ): Promise<string> {
+    return this.incentiveManager.createStakingPosition(user, amount, lockPeriod);
   }
 
-  private async getAllAssets(): Promise<any[]> {
-    // In a real implementation, this would be replaced with a database query
-    const assets: any[] = [];
-    for (const [_, asset] of this.marketplace.assets) {
-      assets.push(asset);
-    }
-    return assets;
+  async claimRewards(positionId: string): Promise<bigint> {
+    return this.incentiveManager.claimRewards(positionId);
   }
 
-  private applyFilters(assets: any[], filters: SearchFilters): any[] {
-    return assets.filter(asset => {
-      // Type filter
-      if (filters.type && !filters.type.includes(asset.type)) {
-        return false;
-      }
-
-      // Price range filter
-      if (filters.priceRange) {
-        if (asset.price < filters.priceRange.min || asset.price > filters.priceRange.max) {
-          return false;
-        }
-      }
-
-      // Privacy score filter
-      if (filters.privacyScore && asset.privacyScore < filters.privacyScore) {
-        return false;
-      }
-
-      // Status filter
-      if (filters.status && !filters.status.includes(asset.status)) {
-        return false;
-      }
-
-      // Owner filter
-      if (filters.owner && asset.owner !== filters.owner) {
-        return false;
-      }
-
-      return true;
-    });
+  async unstakeTokens(positionId: string): Promise<void> {
+    return this.incentiveManager.unstake(positionId);
   }
 
-  private applySorting(assets: any[], sort: SortOptions): any[] {
-    return assets.sort((a, b) => {
-      let valueA, valueB;
-
-      switch (sort.field) {
-        case 'price':
-          valueA = a.price;
-          valueB = b.price;
-          break;
-        case 'privacyScore':
-          valueA = a.privacyScore;
-          valueB = b.privacyScore;
-          break;
-        case 'lastUpdated':
-          valueA = new Date(a.metadata.lastUpdated).getTime();
-          valueB = new Date(b.metadata.lastUpdated).getTime();
-          break;
-        case 'recordCount':
-          valueA = a.metadata.recordCount;
-          valueB = b.metadata.recordCount;
-          break;
-        default:
-          return 0;
-      }
-
-      return sort.order === 'asc' ? valueA - valueB : valueB - valueA;
-    });
+  // Payment related methods
+  async getTransaction(transactionId: string) {
+    return this.paymentIntegrator.getTransaction(transactionId);
   }
 
-  private async calculateDataQuality(asset: any): Promise<{
-    completeness: number;
-    accuracy: number;
-    consistency: number;
-  }> {
-    // This is a simplified implementation
-    // In production, implement proper data quality assessment
-    return {
-      completeness: 0.95,
-      accuracy: 0.90,
-      consistency: 0.85
-    };
-  }
-
-  private validateAssetData(asset: any): void {
-    const requiredFields = ['name', 'description', 'owner', 'price', 'type'];
-    for (const field of requiredFields) {
-      if (!asset[field]) {
-        throw new Error(`Missing required field: ${field}`);
-      }
-    }
-
-    if (asset.price <= 0) {
-      throw new Error('Price must be greater than 0');
-    }
-
-    const validTypes = ['tabular', 'image', 'text'];
-    if (!validTypes.includes(asset.type)) {
-      throw new Error('Invalid asset type');
-    }
-  }
-
-  private async setupSecureAccess(assetId: string, userId: string): Promise<void> {
-    try {
-      const asset = await this.marketplace.getAsset(assetId);
-      if (!asset) {
-        throw new Error('Asset not found');
-      }
-
-      // Apply differential privacy if enabled
-      if (asset.metadata?.privacy?.useDifferentialPrivacy) {
-        await this.differentialPrivacy.applyDifferentialPrivacy(
-          asset,
-          10 // batch size
-        );
-      }
-
-      // Apply homomorphic encryption if enabled
-      if (asset.metadata?.privacy?.useHomomorphicEncryption) {
-        const encryptedData = await this.homomorphicEncryption.encryptWeights(
-          asset.data
-        );
-        // Store encrypted data for user access
-      }
-    } catch (error) {
-      console.error('Failed to setup secure access:', error);
-      throw error;
-    }
-  }
-
-  private setupEventHandlers(): void {
-    this.marketplace.on('assetListed', (event) => {
-      console.log('New asset listed:', event);
-    });
-
-    this.marketplace.on('accessPurchased', (event) => {
-      console.log('Access purchased:', event);
-    });
-
-    this.marketplace.on('error', (error) => {
-      console.error('Marketplace error:', error);
-    });
+  async refundTransaction(transactionId: string): Promise<void> {
+    return this.paymentIntegrator.refundPayment(transactionId);
   }
 } 

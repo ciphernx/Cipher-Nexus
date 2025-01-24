@@ -105,7 +105,8 @@ export abstract class BaseProtocol implements Protocol {
 
     const session: Session = {
       id: this.generateSessionId(),
-      participants,
+      participants: participants.map(p => p.id),
+      localParticipantId: participants[0].id,
       state: {},
       startTime: new Date()
     };
@@ -227,5 +228,16 @@ export abstract class BaseProtocol implements Protocol {
 
   protected notifyError(error: ProtocolError): void {
     this.state.errorHandlers.forEach(handler => handler(error));
+  }
+
+  protected async broadcast(session: Session, message: Partial<Message>): Promise<void> {
+    await this.onSendMessage({
+      session,
+      type: message.type || 'BROADCAST',
+      data: message.data,
+      senderId: session.localParticipantId,
+      receiverId: '*',
+      timestamp: new Date()
+    });
   }
 } 

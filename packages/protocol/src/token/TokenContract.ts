@@ -2,11 +2,17 @@ import { EventEmitter } from 'events';
 import { createHash } from 'crypto';
 
 interface TokenInfo {
-  symbol: string;
   name: string;
+  symbol: string;
   decimals: number;
   totalSupply: bigint;
   owner: string;
+}
+
+interface TransferMetadata {
+  reference?: string;
+  description?: string;
+  timestamp?: Date;
 }
 
 interface TokenBalance {
@@ -31,26 +37,27 @@ interface TokenMetrics {
 }
 
 export class TokenContract extends EventEmitter {
-  private info: TokenInfo;
-  private balances: Map<string, TokenBalance> = new Map();
-  private allowances: Map<string, TokenAllowance[]> = new Map();
+  private balances: Map<string, bigint> = new Map();
+  private allowances: Map<string, Map<string, bigint>> = new Map();
+  private readonly info: TokenInfo;
   private metrics: TokenMetrics;
 
   constructor(
-    symbol: string,
     name: string,
+    symbol: string,
     decimals: number,
     initialSupply: bigint,
     owner: string
   ) {
     super();
     this.info = {
-      symbol,
       name,
+      symbol,
       decimals,
       totalSupply: initialSupply,
       owner
     };
+    this.balances.set(owner, initialSupply);
 
     this.metrics = {
       holders: 0,
@@ -60,130 +67,34 @@ export class TokenContract extends EventEmitter {
     };
 
     // Initialize creator balance
-    this.balances.set(owner, {
-      address: owner,
-      amount: initialSupply,
-      locked: 0n,
-      lastUpdated: new Date()
-    });
+    this.balances.set(owner, initialSupply);
     this.metrics.holders = 1;
   }
 
-  // 基础信息查询
-  getInfo(): TokenInfo {
-    return { ...this.info };
-  }
-
-  getMetrics(): TokenMetrics {
-    return { ...this.metrics };
-  }
-
-  getBalance(address: string): bigint {
-    const balance = this.balances.get(address);
-    return balance ? balance.amount : 0n;
-  }
-
-  getAllowance(owner: string, spender: string): bigint {
-    const ownerAllowances = this.allowances.get(owner) || [];
-    const allowance = ownerAllowances.find(a => a.spender === spender);
-    if (!allowance || (allowance.expiry && allowance.expiry < new Date())) {
-      return 0n;
-    }
-    return allowance.amount;
-  }
-
-  // 转账相关
   async transfer(
-    from: string,
     to: string,
-    amount: bigint
+    amount: bigint,
+    metadata: TransferMetadata = {}
   ): Promise<boolean> {
     try {
-      // Check balance
-      const fromBalance = this.balances.get(from);
-      if (!fromBalance || fromBalance.amount < amount) {
-        throw new Error('Insufficient balance');
-      }
+      const sender = this.info.owner;
+      await this.validateTransfer(sender, to, amount);
 
-      // Check locked amount
-      if (fromBalance.amount - fromBalance.locked < amount) {
-        throw new Error('Funds locked');
-      }
+      // Update balances
+      const fromBalance = this.balances.get(sender) || 0n;
+      const toBalance = this.balances.get(to) || 0n;
 
-      // Update sender balance
-      fromBalance.amount -= amount;
-      fromBalance.lastUpdated = new Date();
+      this.balances.set(sender, fromBalance - amount);
+      this.balances.set(to, toBalance + amount);
 
-      // Update recipient balance
-      let toBalance = this.balances.get(to);
-      if (!toBalance) {
-        toBalance = {
-          address: to,
-          amount: 0n,
-          locked: 0n,
-          lastUpdated: new Date()
-        };
-        this.metrics.holders++;
-      }
-      toBalance.amount += amount;
-      toBalance.lastUpdated = new Date();
-
-      // Save updates
-      this.balances.set(from, fromBalance);
-      this.balances.set(to, toBalance);
-
-      // Update metrics
-      this.metrics.transactions++;
-      this.metrics.volume += amount;
-
-      this.emit('transfer', {
-        from,
+      this.emit('Transfer', {
+        from: sender,
         to,
         amount,
-        timestamp: new Date()
-      });
-
-      return true;
-    } catch (error) {
-      this.emit('error', error);
-      throw error;
-    }
-  }
-
-  async approve(
-    owner: string,
-    spender: string,
-    amount: bigint,
-    expiry?: Date
-  ): Promise<boolean> {
-    try {
-      let ownerAllowances = this.allowances.get(owner);
-      if (!ownerAllowances) {
-        ownerAllowances = [];
-      }
-
-      const allowanceIndex = ownerAllowances.findIndex(a => a.spender === spender);
-      const allowance: TokenAllowance = {
-        owner,
-        spender,
-        amount,
-        expiry
-      };
-
-      if (allowanceIndex >= 0) {
-        ownerAllowances[allowanceIndex] = allowance;
-      } else {
-        ownerAllowances.push(allowance);
-      }
-
-      this.allowances.set(owner, ownerAllowances);
-
-      this.emit('approval', {
-        owner,
-        spender,
-        amount,
-        expiry,
-        timestamp: new Date()
+        metadata: {
+          ...metadata,
+          timestamp: metadata.timestamp || new Date()
+        }
       });
 
       return true;
@@ -194,28 +105,35 @@ export class TokenContract extends EventEmitter {
   }
 
   async transferFrom(
-    spender: string,
     from: string,
     to: string,
-    amount: bigint
+    amount: bigint,
+    metadata: TransferMetadata = {}
   ): Promise<boolean> {
     try {
-      // Check allowance
-      const allowance = this.getAllowance(from, spender);
-      if (allowance < amount) {
-        throw new Error('Insufficient allowance');
-      }
+      await this.validateTransfer(from, to, amount);
+      await this.validateAllowance(from, this.info.owner, amount);
 
-      // Execute transfer
-      await this.transfer(from, to, amount);
+      // Update balances
+      const fromBalance = this.balances.get(from) || 0n;
+      const toBalance = this.balances.get(to) || 0n;
+
+      this.balances.set(from, fromBalance - amount);
+      this.balances.set(to, toBalance + amount);
 
       // Update allowance
-      const ownerAllowances = this.allowances.get(from) || [];
-      const allowanceIndex = ownerAllowances.findIndex(a => a.spender === spender);
-      if (allowanceIndex >= 0) {
-        ownerAllowances[allowanceIndex].amount -= amount;
-      }
-      this.allowances.set(from, ownerAllowances);
+      const allowance = this.getAllowance(from, this.info.owner);
+      this.setAllowance(from, this.info.owner, allowance - amount);
+
+      this.emit('Transfer', {
+        from,
+        to,
+        amount,
+        metadata: {
+          ...metadata,
+          timestamp: metadata.timestamp || new Date()
+        }
+      });
 
       return true;
     } catch (error) {
@@ -224,7 +142,85 @@ export class TokenContract extends EventEmitter {
     }
   }
 
-  // 锁定/解锁代币
+  async approve(
+    spender: string,
+    amount: bigint,
+    metadata: TransferMetadata = {}
+  ): Promise<boolean> {
+    try {
+      this.setAllowance(this.info.owner, spender, amount);
+
+      this.emit('Approval', {
+        owner: this.info.owner,
+        spender,
+        amount,
+        metadata: {
+          ...metadata,
+          timestamp: metadata.timestamp || new Date()
+        }
+      });
+
+      return true;
+    } catch (error) {
+      this.emit('error', error);
+      throw error;
+    }
+  }
+
+  getInfo(): TokenInfo {
+    return { ...this.info };
+  }
+
+  getBalance(account: string): bigint {
+    return this.balances.get(account) || 0n;
+  }
+
+  getAllowance(owner: string, spender: string): bigint {
+    return this.allowances.get(owner)?.get(spender) || 0n;
+  }
+
+  private setAllowance(owner: string, spender: string, amount: bigint): void {
+    if (!this.allowances.has(owner)) {
+      this.allowances.set(owner, new Map());
+    }
+    this.allowances.get(owner)!.set(spender, amount);
+  }
+
+  private async validateTransfer(
+    from: string,
+    to: string,
+    amount: bigint
+  ): Promise<void> {
+    if (amount <= 0n) {
+      throw new Error('Amount must be positive');
+    }
+
+    if (!from || !to) {
+      throw new Error('Invalid addresses');
+    }
+
+    const fromBalance = this.balances.get(from) || 0n;
+    if (fromBalance < amount) {
+      throw new Error('Insufficient balance');
+    }
+  }
+
+  private async validateAllowance(
+    owner: string,
+    spender: string,
+    amount: bigint
+  ): Promise<void> {
+    const allowance = this.getAllowance(owner, spender);
+    if (allowance < amount) {
+      throw new Error('Insufficient allowance');
+    }
+  }
+
+  getMetrics(): TokenMetrics {
+    return { ...this.metrics };
+  }
+
+  // Token locking/unlocking operations
   async lock(
     address: string,
     amount: bigint,
@@ -232,12 +228,11 @@ export class TokenContract extends EventEmitter {
   ): Promise<boolean> {
     try {
       const balance = this.balances.get(address);
-      if (!balance || balance.amount - balance.locked < amount) {
+      if (!balance || balance < amount) {
         throw new Error('Insufficient unlocked balance');
       }
 
-      balance.locked += amount;
-      this.balances.set(address, balance);
+      this.balances.set(address, balance - amount);
 
       this.emit('locked', {
         address,
@@ -260,12 +255,11 @@ export class TokenContract extends EventEmitter {
   ): Promise<boolean> {
     try {
       const balance = this.balances.get(address);
-      if (!balance || balance.locked < amount) {
+      if (!balance || balance < amount) {
         throw new Error('Insufficient locked balance');
       }
 
-      balance.locked -= amount;
-      this.balances.set(address, balance);
+      this.balances.set(address, balance - amount);
 
       this.emit('unlocked', {
         address,
@@ -281,7 +275,7 @@ export class TokenContract extends EventEmitter {
     }
   }
 
-  // 铸造/销毁代币
+  // Token minting/burning operations
   async mint(
     to: string,
     amount: bigint
@@ -291,19 +285,8 @@ export class TokenContract extends EventEmitter {
         throw new Error('Only owner can mint tokens');
       }
 
-      let balance = this.balances.get(to);
-      if (!balance) {
-        balance = {
-          address: to,
-          amount: 0n,
-          locked: 0n,
-          lastUpdated: new Date()
-        };
-        this.metrics.holders++;
-      }
-
-      balance.amount += amount;
-      balance.lastUpdated = new Date();
+      let balance = this.balances.get(to) || 0n;
+      balance += amount;
       this.balances.set(to, balance);
 
       this.info.totalSupply += amount;
@@ -327,17 +310,11 @@ export class TokenContract extends EventEmitter {
   ): Promise<boolean> {
     try {
       const balance = this.balances.get(from);
-      if (!balance || balance.amount < amount) {
+      if (!balance || balance < amount) {
         throw new Error('Insufficient balance');
       }
 
-      if (balance.amount - balance.locked < amount) {
-        throw new Error('Funds locked');
-      }
-
-      balance.amount -= amount;
-      balance.lastUpdated = new Date();
-      this.balances.set(from, balance);
+      this.balances.set(from, balance - amount);
 
       this.info.totalSupply -= amount;
 
@@ -354,7 +331,7 @@ export class TokenContract extends EventEmitter {
     }
   }
 
-  // 更新市值
+  // Update market capitalization
   async updateMarketCap(price: bigint): Promise<void> {
     this.metrics.marketCap = this.info.totalSupply * price;
     this.emit('marketCapUpdated', {

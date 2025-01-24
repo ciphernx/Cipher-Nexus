@@ -5,16 +5,16 @@ interface StakingPosition {
   address: string;
   amount: bigint;
   startTime: Date;
-  lockPeriod: number; // 锁定期(天)
+  lockPeriod: number; // Lock period (days)
   rewards: bigint;
   lastClaim: Date;
 }
 
 interface RewardConfig {
-  baseRate: number;      // 基础年化率
-  boostMultiplier: number; // 加速倍数
-  minStake: bigint;      // 最小质押量
-  maxBoost: number;      // 最大加速倍数
+  baseRate: number;      // Base annual rate
+  boostMultiplier: number; // Boost multiplier
+  minStake: bigint;      // Minimum stake amount
+  maxBoost: number;      // Maximum boost multiplier
 }
 
 interface GovernanceProposal {
@@ -29,8 +29,8 @@ interface GovernanceProposal {
     for: bigint;
     against: bigint;
   };
-  quorum: bigint;       // 最小投票数
-  threshold: number;    // 通过阈值(0-1)
+  quorum: bigint;       // Minimum vote count
+  threshold: number;    // Approval threshold (0-1)
 }
 
 interface Vote {
@@ -348,7 +348,7 @@ export class TokenEconomyManager extends EventEmitter {
   // 私有方法
   private calculateRewards(position: StakingPosition): bigint {
     const now = new Date();
-    const timeDiff = (now.getTime() - position.lastClaim.getTime()) / (1000 * 60 * 60 * 24 * 365); // 年化
+    const timeDiff = (now.getTime() - position.lastClaim.getTime()) / (1000 * 60 * 60 * 24 * 365); // Annualized
     
     // Calculate base reward
     let rate = this.rewardConfig.baseRate;

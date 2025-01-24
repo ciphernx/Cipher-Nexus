@@ -2,32 +2,12 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": ".",
-    "composite": true,
-    "declaration": true,
-    "sourceMap": true,
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "strictBindCallApply": true,
-    "strictPropertyInitialization": true,
-    "noImplicitThis": true,
-    "alwaysStrict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "lib": ["es2020", "dom"],
-    "module": "commonjs",
-    "target": "es2020",
-    "types": [
-      "node",
-      "jest"
-    ]
+    "rootDir": "./src",
+    "composite": true
   },
-  "include": ["src/**/*", "examples/**/*"],
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "test"],
   "references": [
-    { "path": "../crypto" },
     { "path": "../protocol" }
   ]
 } 

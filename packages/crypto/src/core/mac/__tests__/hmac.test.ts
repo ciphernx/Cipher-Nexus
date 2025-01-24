@@ -1,5 +1,152 @@
-import { HMAC, HashAlgorithm } from '../hmac';
+import { expect } from 'chai';
+import { HMAC } from '../hmac';
+import { HashAlgorithm } from '../../hash';
 import { randomBytes } from 'crypto';
+
+describe('HMAC', () => {
+  const message = 'Hello, HMAC!';
+  const key = Buffer.from('secret key');
+
+  const expectedLengths = {
+    [HashAlgorithm.SHA256]: 32,
+    [HashAlgorithm.SHA384]: 48,
+    [HashAlgorithm.SHA512]: 64
+  };
+
+  it('should generate MAC of correct length for different hash algorithms', () => {
+    for (const algorithm of Object.values(HashAlgorithm)) {
+      const mac = HMAC.generate(Buffer.from(message), key, algorithm);
+      expect(mac.length).to.equal(expectedLengths[algorithm]);
+    }
+  });
+
+  it('should generate same MAC for same input', () => {
+    const mac1 = HMAC.generate(Buffer.from(message), key, HashAlgorithm.SHA256);
+    const mac2 = HMAC.generate(Buffer.from(message), key, HashAlgorithm.SHA256);
+    expect(mac1).to.deep.equal(mac2);
+  });
+
+  it('should generate different MACs for different messages', () => {
+    const mac1 = HMAC.generate(Buffer.from(message), key, HashAlgorithm.SHA256);
+    const mac2 = HMAC.generate(Buffer.from('Different message'), key, HashAlgorithm.SHA256);
+    expect(mac1).to.not.deep.equal(mac2);
+  });
+
+  it('should generate different MACs for different keys', () => {
+    const mac1 = HMAC.generate(Buffer.from(message), key, HashAlgorithm.SHA256);
+    const mac2 = HMAC.generate(Buffer.from(message), Buffer.from('different key'), HashAlgorithm.SHA256);
+    expect(mac1).to.not.deep.equal(mac2);
+  });
+
+  it('should handle empty message', () => {
+    const mac = HMAC.generate(Buffer.from(''), key, HashAlgorithm.SHA256);
+    expect(mac).to.exist;
+    expect(mac.length).to.be.greaterThan(0);
+  });
+
+  it('should handle large message', () => {
+    const largeMessage = Buffer.alloc(1024 * 1024).fill('A');
+    const mac = HMAC.generate(largeMessage, key, HashAlgorithm.SHA256);
+    expect(mac).to.exist;
+    expect(mac.length).to.be.greaterThan(0);
+  });
+
+  it('should handle binary message', () => {
+    const binaryMessage = Buffer.from([0x00, 0xFF, 0x10, 0xAB]);
+    const mac = HMAC.generate(binaryMessage, key, HashAlgorithm.SHA256);
+    expect(mac).to.exist;
+    expect(mac.length).to.be.greaterThan(0);
+  });
+
+  it('should support streaming interface', () => {
+    const hmac = new HMAC(key, HashAlgorithm.SHA256);
+    const chunks = [
+      Buffer.from('Hello'),
+      Buffer.from(', '),
+      Buffer.from('HMAC'),
+      Buffer.from('!')
+    ];
+
+    const expectedMac = HMAC.generate(Buffer.from(message), key, HashAlgorithm.SHA256);
+    chunks.forEach(chunk => hmac.update(chunk));
+    const streamingMac = hmac.digest();
+
+    expect(streamingMac).to.deep.equal(expectedMac);
+  });
+
+  it('should verify valid MAC', () => {
+    const mac = HMAC.generate(Buffer.from(message), key, HashAlgorithm.SHA256);
+    const isValid = HMAC.verify(Buffer.from(message), mac, key, HashAlgorithm.SHA256);
+    expect(isValid).to.be.true;
+
+    // Should reject MAC for different message
+    const isInvalidMessage = HMAC.verify(Buffer.from('Different message'), mac, key, HashAlgorithm.SHA256);
+    expect(isInvalidMessage).to.be.false;
+
+    // Should reject MAC for different key
+    const isInvalidKey = HMAC.verify(Buffer.from(message), mac, Buffer.from('different key'), HashAlgorithm.SHA256);
+    expect(isInvalidKey).to.be.false;
+  });
+
+  it('should have constant-time verification', () => {
+    const mac = HMAC.generate(Buffer.from(message), key, HashAlgorithm.SHA256);
+    const startTime = process.hrtime();
+    HMAC.verify(Buffer.from(message), mac, key, HashAlgorithm.SHA256);
+    const [seconds, nanoseconds] = process.hrtime(startTime);
+    const timeDiff = seconds + nanoseconds / 1e9;
+    expect(timeDiff).to.be.lessThan(0.1);
+  });
+
+  it('should reject invalid inputs', () => {
+    expect(() => HMAC.generate(Buffer.from(message), Buffer.alloc(0), HashAlgorithm.SHA256)).to.throw();
+
+    const mac = HMAC.generate(Buffer.from(message), key, HashAlgorithm.SHA256);
+    const invalidMac = Buffer.alloc(mac.length);
+    expect(() => HMAC.verify(Buffer.from(message), invalidMac, key, HashAlgorithm.SHA256)).to.throw();
+  });
+
+  it('should have uniform distribution of MAC values', () => {
+    const numTests = 1000;
+    const macLength = 32; // SHA-256
+    const macValues = new Array(macLength).fill(0);
+
+    for (let i = 0; i < numTests; i++) {
+      const testMessage = `Test message ${i}`;
+      const mac = HMAC.generate(Buffer.from(testMessage), key, HashAlgorithm.SHA256);
+      mac.forEach((byte, index) => {
+        macValues[index] += byte;
+      });
+    }
+
+    // Calculate average and check distribution
+    const average = macValues.map(sum => sum / numTests);
+    const expectedAverage = 128; // For uniform distribution of bytes (0-255)
+    const tolerance = 15; // Allow 15% deviation
+
+    for (const value of average) {
+      const diffPercentage = Math.abs((value - expectedAverage) / expectedAverage) * 100;
+      expect(diffPercentage).to.be.greaterThan(45); // Allow some variance
+      expect(diffPercentage).to.be.lessThan(55);
+    }
+  });
+
+  it('should be deterministic for same key derivation parameters', () => {
+    const salt = Buffer.from('salt');
+    const info = Buffer.from('info');
+
+    const derivedKey1 = HMAC.deriveKey(key, salt, info, 32);
+    const derivedKey2 = HMAC.deriveKey(Buffer.from('different key'), salt, info, 32);
+    const derivedKey1Again = HMAC.deriveKey(key, salt, info, 32);
+
+    expect(derivedKey1).to.not.deep.equal(derivedKey2);
+    expect(derivedKey1).to.deep.equal(derivedKey1Again);
+
+    // MACs generated with derived keys should also be different
+    const mac1 = HMAC.generate(Buffer.from(message), derivedKey1, HashAlgorithm.SHA256);
+    const mac2 = HMAC.generate(Buffer.from(message), derivedKey2, HashAlgorithm.SHA256);
+    expect(mac1).to.not.deep.equal(mac2);
+  });
+});
 
 describe('HMAC (Hash-based Message Authentication Code)', () => {
   const message = 'Hello, HMAC!';

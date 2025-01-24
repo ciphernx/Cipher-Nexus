@@ -1,8 +1,8 @@
 /// <reference types="node" />
 import { Buffer } from 'buffer';
-import { Curve25519, HKDF } from '@cipher-nexus/core';
 import { BaseProtocol } from './base';
-import { Message, Session, ProtocolErrorType } from './types';
+import { Message, Session, ProtocolErrorType, ProtocolState } from './types';
+import { createECDH, createHash } from 'crypto';
 
 /**
  * Key exchange message types
@@ -15,7 +15,7 @@ enum KeyExchangeMessageType {
 /**
  * Key exchange session state
  */
-interface KeyExchangeState {
+interface KeyExchangeState extends ProtocolState {
   localKeyPair?: {
     publicKey: Buffer;
     secretKey: Buffer;
@@ -26,51 +26,58 @@ interface KeyExchangeState {
 }
 
 /**
- * Secure key exchange protocol implementation using Curve25519
+ * Implements the key exchange protocol using ECDH
  */
 export class KeyExchangeProtocol extends BaseProtocol {
+  protected state: KeyExchangeState = {
+    isInitialized: false,
+    isRunning: false,
+    activeSessions: new Map(),
+    messageHandlers: new Set(),
+    errorHandlers: new Set(),
+    remotePublicKeys: new Map(),
+    sharedSecrets: new Map(),
+    isComplete: false
+  };
+
   protected async onInitialize(): Promise<void> {
-    // No specific initialization needed
+    // Generate local key pair
+    const ecdh = createECDH('prime256v1');
+    ecdh.generateKeys();
+    
+    this.state.localKeyPair = {
+      publicKey: ecdh.getPublicKey(),
+      secretKey: ecdh.getPrivateKey()
+    };
   }
 
   protected async onStart(): Promise<void> {
-    // No specific start actions needed
+    // Reset state
+    this.state.remotePublicKeys.clear();
+    this.state.sharedSecrets.clear();
+    this.state.isComplete = false;
   }
 
   protected async onStop(): Promise<void> {
-    // Clean up any resources
-    if (this.state.currentSession) {
-      await this.leaveSession(this.state.currentSession.id);
-    }
+    // Clean up state
+    this.state.remotePublicKeys.clear();
+    this.state.sharedSecrets.clear();
+    this.state.isComplete = false;
   }
 
   protected async onCreateSession(session: Session): Promise<void> {
-    // Initialize session state
-    session.state = {
-      remotePublicKeys: new Map(),
-      sharedSecrets: new Map(),
-      isComplete: false
-    } as KeyExchangeState;
-
-    // Generate local key pair
-    const keyPair = Curve25519.generateKeyPair();
-    (session.state as KeyExchangeState).localKeyPair = keyPair;
+    if (!this.state.localKeyPair) {
+      throw new Error('Protocol not initialized');
+    }
 
     // Broadcast public key to all participants
     await this.broadcastPublicKey(session);
   }
 
   protected async onJoinSession(session: Session): Promise<void> {
-    // Initialize session state
-    session.state = {
-      remotePublicKeys: new Map(),
-      sharedSecrets: new Map(),
-      isComplete: false
-    } as KeyExchangeState;
-
-    // Generate local key pair
-    const keyPair = Curve25519.generateKeyPair();
-    (session.state as KeyExchangeState).localKeyPair = keyPair;
+    if (!this.state.localKeyPair) {
+      throw new Error('Protocol not initialized');
+    }
 
     // Broadcast public key to all participants
     await this.broadcastPublicKey(session);
@@ -78,139 +85,96 @@ export class KeyExchangeProtocol extends BaseProtocol {
 
   protected async onLeaveSession(session: Session): Promise<void> {
     // Clean up session state
-    session.state = {};
-    session.endTime = new Date();
+    this.state.remotePublicKeys.clear();
+    this.state.sharedSecrets.clear();
+    this.state.isComplete = false;
   }
 
   protected async onSendMessage(message: Message): Promise<void> {
-    const session = this.state.currentSession;
-    if (!session) {
-      throw this.createError(ProtocolErrorType.INVALID_STATE, 'No active session');
-    }
-
-    // Process message based on type
     switch (message.type) {
       case KeyExchangeMessageType.PUBLIC_KEY:
-        await this.handlePublicKeyMessage(session, message);
+        await this.handlePublicKeyMessage(message.session, message);
         break;
       case KeyExchangeMessageType.FINISHED:
-        await this.handleFinishedMessage(session, message);
+        await this.handleFinishedMessage(message.session, message);
         break;
       default:
-        throw this.createError(
-          ProtocolErrorType.INVALID_MESSAGE,
-          `Unknown message type: ${message.type}`
-        );
+        throw new Error(`Unknown message type: ${message.type}`);
     }
   }
 
-  /**
-   * Get the shared secret for a specific participant
-   */
   public getSharedSecret(participantId: string): Buffer | undefined {
-    const session = this.state.currentSession;
-    if (!session) {
-      throw this.createError(ProtocolErrorType.INVALID_STATE, 'No active session');
-    }
-
-    const state = session.state as KeyExchangeState;
-    return state.sharedSecrets.get(participantId);
+    return this.state.sharedSecrets.get(participantId);
   }
 
-  /**
-   * Check if key exchange is complete
-   */
   public isComplete(): boolean {
-    const session = this.state.currentSession;
-    if (!session) {
-      return false;
-    }
-
-    const state = session.state as KeyExchangeState;
-    return state.isComplete;
+    return this.state.isComplete;
   }
 
   private async broadcastPublicKey(session: Session): Promise<void> {
-    const state = session.state as KeyExchangeState;
-    if (!state.localKeyPair) {
-      throw this.createError(ProtocolErrorType.INVALID_STATE, 'Local key pair not generated');
+    if (!this.state.localKeyPair) {
+      throw new Error('Protocol not initialized');
     }
 
-    // Create and broadcast public key message
-    const message: Message = {
+    await this.broadcast(session, {
       type: KeyExchangeMessageType.PUBLIC_KEY,
-      sender: session.participants[0].id, // Assuming first participant is local
-      receiver: '*', // Broadcast to all
-      content: state.localKeyPair.publicKey,
-      timestamp: new Date()
-    };
-
-    await this.notifyMessageHandlers(message);
+      data: this.state.localKeyPair.publicKey
+    });
   }
 
   private async handlePublicKeyMessage(session: Session, message: Message): Promise<void> {
-    const state = session.state as KeyExchangeState;
+    if (!message.data || !message.senderId) {
+      throw new Error('Invalid public key message');
+    }
 
     // Store remote public key
-    state.remotePublicKeys.set(message.sender, message.content);
+    this.state.remotePublicKeys.set(message.senderId, message.data);
 
     // If we have all public keys, compute shared secrets
-    if (state.remotePublicKeys.size === session.participants.length - 1) {
+    if (this.state.remotePublicKeys.size === session.participants.length - 1) {
       await this.computeSharedSecrets(session);
       await this.sendFinished(session);
     }
   }
 
   private async handleFinishedMessage(session: Session, message: Message): Promise<void> {
-    const state = session.state as KeyExchangeState;
-    
-    // Mark key exchange as complete when all participants have finished
-    let allFinished = true;
-    for (const participant of session.participants) {
-      if (participant.id !== session.participants[0].id && // Skip local participant
-          !state.sharedSecrets.has(participant.id)) {
-        allFinished = false;
-        break;
-      }
+    if (!message.senderId) {
+      throw new Error('Invalid finished message');
     }
 
-    if (allFinished) {
-      state.isComplete = true;
+    // If we have received finished messages from all participants, mark as complete
+    const finishedCount = Array.from(session.participants).filter(
+      p => p !== session.localParticipantId
+    ).length;
+
+    if (finishedCount === session.participants.length - 1) {
+      this.state.isComplete = true;
     }
   }
 
   private async computeSharedSecrets(session: Session): Promise<void> {
-    const state = session.state as KeyExchangeState;
-    if (!state.localKeyPair) {
-      throw this.createError(ProtocolErrorType.INVALID_STATE, 'Local key pair not generated');
+    if (!this.state.localKeyPair) {
+      throw new Error('Protocol not initialized');
     }
 
-    // Compute shared secret with each participant
-    for (const [participantId, publicKey] of state.remotePublicKeys) {
-      const sharedSecret = Curve25519.computeSharedSecret(
-        state.localKeyPair.secretKey,
-        publicKey
-      );
-
+    // Compute shared secrets with each participant
+    for (const [participantId, publicKey] of this.state.remotePublicKeys) {
+      const ecdh = createECDH('prime256v1');
+      ecdh.setPrivateKey(this.state.localKeyPair.secretKey);
+      
+      const sharedSecret = ecdh.computeSecret(publicKey);
+      
       // Derive final key using HKDF
-      const derivedKey = HKDF.derive(sharedSecret, 32, {
-        salt: Buffer.from('KeyExchange'),
-        info: Buffer.from(`${session.id}:${participantId}`)
-      });
-
-      state.sharedSecrets.set(participantId, derivedKey);
+      const hash = createHash('sha256');
+      hash.update(sharedSecret);
+      
+      this.state.sharedSecrets.set(participantId, hash.digest());
     }
   }
 
   private async sendFinished(session: Session): Promise<void> {
-    const message: Message = {
-      type: KeyExchangeMessageType.FINISHED,
-      sender: session.participants[0].id, // Assuming first participant is local
-      receiver: '*', // Broadcast to all
-      content: Buffer.alloc(0), // Empty content
-      timestamp: new Date()
-    };
-
-    await this.notifyMessageHandlers(message);
+    await this.broadcast(session, {
+      type: KeyExchangeMessageType.FINISHED
+    });
   }
 } 
