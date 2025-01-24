@@ -1,0 +1,18 @@
+{
+  "name": "ui",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@auth0/auth0-react": "^2.3.0",
+    "@mui/x-data-grid": "^7.24.0",
+    "recharts": "^2.15.0",
+    "socket.io-client": "^4.8.1"
+  }
+}
