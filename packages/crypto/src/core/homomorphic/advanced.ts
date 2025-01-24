@@ -85,10 +85,10 @@ export class AdvancedFHE extends FHE {
   ): Promise<FHECiphertext> {
     // Approximate sigmoid using polynomial
     const coefficients = [
-      0.5n,                    // constant term
-      0.197n,                  // x
-      -0.004n,                // x^2
-      0.00006n                // x^3
+      0.5,                    // constant term
+      0.197,                  // x
+      -0.004,                // x^2
+      0.00006                // x^3
     ];
     
     return await this.evaluatePolynomial(x, coefficients, evaluationKey);
