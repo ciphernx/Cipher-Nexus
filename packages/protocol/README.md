@@ -1,14 +1,262 @@
 # Cipher Nexus Protocol Package
 
+[English](#english) | [中文](#chinese)
+
+<a name="english"></a>
+## Overview
+
+Secure multi-party computation protocol implementation supporting various computation types and security features.
+
+## Features
+
+* Support for multiple computation types (SUM, AVERAGE, MAX, MIN, MEDIAN, etc.)
+* Message batch processing optimization
+* Security protection (blinding, threshold schemes)
+* Audit logging
+* Error recovery mechanism
+
+## Installation
+
+```bash
+npm install @ciphernx/protocol
+```
+
+## API Documentation
+
+### MPCProtocol
+
+Main protocol implementation class providing the following functionalities:
+
+#### Initialization and Session Management
+
+```typescript
+// Create protocol instance
+const protocol = new MPCProtocol();
+
+// Initialize protocol
+await protocol.initialize();
+
+// Start protocol
+await protocol.start();
+
+// Create session
+const session = await protocol.createSession(participants);
+
+// Join session
+await protocol.joinSession(sessionId);
+
+// Leave session
+await protocol.leaveSession(sessionId);
+```
+
+#### Computation Operations
+
+```typescript
+// Set local value
+protocol.setLocalValue(value: Buffer);
+
+// Start computation
+await protocol.startComputation(MPCComputationType.SUM);
+
+// Check if computation is complete
+const isComplete = protocol.isComplete();
+
+// Get computation result
+const result = protocol.getResult();
+```
+
+#### Message Handling
+
+```typescript
+// Register message handler
+protocol.onMessage(async (message: Message) => {
+  // Handle received message
+});
+
+// Set batch parameters
+protocol.setBatchParameters(batchSize: number, batchTimeout: number);
+```
+
+### Computation Types
+
+Supports the following computation types:
+
+* `MPCComputationType.SUM`: Calculate sum
+* `MPCComputationType.AVERAGE`: Calculate average
+* `MPCComputationType.MAX`: Calculate maximum
+* `MPCComputationType.MIN`: Calculate minimum
+* `MPCComputationType.MEDIAN`: Calculate median
+* `MPCComputationType.VARIANCE`: Calculate variance
+* `MPCComputationType.MODE`: Calculate mode
+* `MPCComputationType.STD_DEV`: Calculate standard deviation
+* `MPCComputationType.QUARTILE`: Calculate quartiles
+* `MPCComputationType.RANGE`: Calculate range
+
+## Usage Examples
+
+### Basic Usage
+
+```typescript
+import { MPCProtocol, MPCComputationType } from '@ciphernx/protocol';
+import { Buffer } from 'buffer';
+
+// Create participants
+const participants = [
+  { id: 'participant1', publicKey: Buffer.from('key1') },
+  { id: 'participant2', publicKey: Buffer.from('key2') },
+  { id: 'participant3', publicKey: Buffer.from('key3') }
+];
+
+// Create protocol instance
+const protocol = new MPCProtocol();
+
+// Initialize and start
+await protocol.initialize();
+await protocol.start();
+
+// Create session
+const session = await protocol.createSession(participants);
+
+// Set message handler
+protocol.onMessage(async (message) => {
+  // Handle message...
+});
+
+// Set local value
+protocol.setLocalValue(Buffer.from([10]));
+
+// Start computation
+await protocol.startComputation(MPCComputationType.SUM);
+
+// Wait for completion
+while (!protocol.isComplete()) {
+  await new Promise(resolve => setTimeout(resolve, 100));
+}
+
+// Get result
+const result = protocol.getResult();
+console.log('Computation result:', result?.readUInt8(0));
+```
+
+### Advanced Features
+
+```typescript
+// Enable batch processing optimization
+protocol.setBatchParameters(100, 50); // batchSize = 100, timeout = 50ms
+
+// Use audit logging
+protocol.onMessage(async (message) => {
+  // Logs will automatically record key events
+});
+
+// Error recovery
+protocol.onMessage(async (message) => {
+  try {
+    // Handle message...
+  } catch (error) {
+    // Protocol will automatically attempt recovery
+    console.error('Error occurred:', error);
+  }
+});
+```
+
+## Deployment Guide
+
+### System Requirements
+
+* Node.js >= 14.0.0
+* TypeScript >= 4.0.0
+
+### Installation Steps
+
+1. Install dependencies:
+```bash
+npm install @ciphernx/protocol
+```
+
+2. Configure TypeScript:
+```json
+{
+  "compilerOptions": {
+    "target": "es2018",
+    "module": "commonjs",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}
+```
+
+3. Import and use:
+```typescript
+import { MPCProtocol } from '@ciphernx/protocol';
+```
+
+### Production Environment Configuration
+
+1. Environment variables:
+```bash
+NODE_ENV=production
+LOG_LEVEL=info
+BATCH_SIZE=100
+BATCH_TIMEOUT=50
+```
+
+2. Logging configuration:
+```typescript
+const protocol = new MPCProtocol();
+protocol.setLogLevel('info'); // 'debug' | 'info' | 'warn' | 'error'
+```
+
+3. Performance optimization:
+* Adjust batch parameters to suit network conditions
+* Monitor memory usage
+* Use load balancers to distribute requests
+
+### Security Recommendations
+
+1. Network security:
+* Use TLS for encrypted communication
+* Implement access control
+* Monitor abnormal activities
+
+2. Key management:
+* Secure key storage
+* Regular key rotation
+* Use Hardware Security Modules (HSM)
+
+3. Auditing:
+* Enable audit logging
+* Regular log review
+* Set up alert mechanisms
+
+## Contributing
+
+1. Fork the project
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create Pull Request
+
+## License
+
+MIT License
+
+---
+
+<a name="chinese"></a>
+# Cipher Nexus Protocol 包
+
 安全多方计算协议实现,支持多种计算类型和安全特性。
 
 ## 功能特性
 
-- 支持多种计算类型(SUM, AVERAGE, MAX, MIN, MEDIAN等)
-- 批处理消息优化
-- 安全性保护(盲化、门限方案)
-- 审计日志
-- 错误恢复机制
+* 支持多种计算类型(SUM, AVERAGE, MAX, MIN, MEDIAN等)
+* 批处理消息优化
+* 安全性保护(盲化、门限方案)
+* 审计日志
+* 错误恢复机制
 
 ## 安装
 
@@ -76,16 +324,16 @@ protocol.setBatchParameters(batchSize: number, batchTimeout: number);
 
 支持以下计算类型:
 
-- `MPCComputationType.SUM`: 计算和
-- `MPCComputationType.AVERAGE`: 计算平均值
-- `MPCComputationType.MAX`: 计算最大值
-- `MPCComputationType.MIN`: 计算最小值
-- `MPCComputationType.MEDIAN`: 计算中位数
-- `MPCComputationType.VARIANCE`: 计算方差
-- `MPCComputationType.MODE`: 计算众数
-- `MPCComputationType.STD_DEV`: 计算标准差
-- `MPCComputationType.QUARTILE`: 计算四分位数
-- `MPCComputationType.RANGE`: 计算范围
+* `MPCComputationType.SUM`: 计算和
+* `MPCComputationType.AVERAGE`: 计算平均值
+* `MPCComputationType.MAX`: 计算最大值
+* `MPCComputationType.MIN`: 计算最小值
+* `MPCComputationType.MEDIAN`: 计算中位数
+* `MPCComputationType.VARIANCE`: 计算方差
+* `MPCComputationType.MODE`: 计算众数
+* `MPCComputationType.STD_DEV`: 计算标准差
+* `MPCComputationType.QUARTILE`: 计算四分位数
+* `MPCComputationType.RANGE`: 计算范围
 
 ## 使用示例
 
@@ -159,8 +407,8 @@ protocol.onMessage(async (message) => {
 
 ### 系统要求
 
-- Node.js >= 14.0.0
-- TypeScript >= 4.0.0
+* Node.js >= 14.0.0
+* TypeScript >= 4.0.0
 
 ### 安装步骤
 
@@ -205,26 +453,26 @@ protocol.setLogLevel('info'); // 'debug' | 'info' | 'warn' | 'error'
 ```
 
 3. 性能优化:
-- 调整批处理参数以适应网络条件
-- 监控内存使用
-- 使用负载均衡器分发请求
+* 调整批处理参数以适应网络条件
+* 监控内存使用
+* 使用负载均衡器分发请求
 
 ### 安全建议
 
 1. 网络安全:
-- 使用TLS加密通信
-- 实施访问控制
-- 监控异常活动
+* 使用TLS加密通信
+* 实施访问控制
+* 监控异常活动
 
 2. 密钥管理:
-- 安全存储密钥
-- 定期轮换密钥
-- 使用硬件安全模块(HSM)
+* 安全存储密钥
+* 定期轮换密钥
+* 使用硬件安全模块(HSM)
 
 3. 审计:
-- 启用审计日志
-- 定期审查日志
-- 设置告警机制
+* 启用审计日志
+* 定期审查日志
+* 设置告警机制
 
 ## 贡献指南
 

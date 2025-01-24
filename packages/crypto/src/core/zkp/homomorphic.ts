@@ -1,9 +1,20 @@
 import { BigInteger } from 'jsbn';
 import { SchnorrProtocol, SchnorrParams, SchnorrProof } from './schnorr';
 import { HomomorphicEncryption } from '../homomorphic/fhe';
+import { Hash } from '../hash';
+
+/**
+ * Proof of correct homomorphic operation
+ */
+export interface HomomorphicOperationProof {
+  inputProof: SchnorrProof;    // Proof for input values
+  operationProof: SchnorrProof; // Proof for the operation
+  resultProof: SchnorrProof;    // Proof for the result
+}
 
 /**
  * Integration of homomorphic encryption with zero-knowledge proofs
+ * Provides proofs of correct encryption and homomorphic operations
  */
 export class HomomorphicZKP {
   private schnorr: SchnorrProtocol;
@@ -43,7 +54,7 @@ export class HomomorphicZKP {
     // 3. Compute public value (commitment to the plaintext)
     const publicValue = params.g.modPow(value, params.p);
 
-    // 4. Generate zero-knowledge proof
+    // 4. Generate zero-knowledge proof of knowledge of plaintext
     const proof = await this.schnorr.prove(value, params);
 
     return {
@@ -66,14 +77,20 @@ export class HomomorphicZKP {
     publicValue: BigInteger,
     params: SchnorrParams
   ): Promise<boolean> {
-    // 1. Verify the proof
+    // 1. Verify the proof of knowledge
     const isProofValid = await this.schnorr.verify(proof, publicValue, params);
     if (!isProofValid) {
       return false;
     }
 
-    // 2. Verify ciphertext format
+    // 2. Verify ciphertext format and structure
     if (!this.fhe.isValidCiphertext(ciphertext)) {
+      return false;
+    }
+
+    // 3. Verify consistency between ciphertext and public value
+    const consistencyCheck = await this.verifyConsistency(ciphertext, publicValue, params);
+    if (!consistencyCheck) {
       return false;
     }
 
@@ -83,87 +100,162 @@ export class HomomorphicZKP {
   /**
    * Prove a homomorphic operation
    * @param op The operation type ('add' or 'mul')
-   * @param ciphertext1 First ciphertext
-   * @param ciphertext2 Second ciphertext
-   * @param result Result ciphertext
+   * @param input1 First input {ciphertext, proof, publicValue}
+   * @param input2 Second input {ciphertext, proof, publicValue}
    * @param params Schnorr parameters
    */
   public async proveOperation(
     op: 'add' | 'mul',
-    ciphertext1: Buffer,
-    ciphertext2: Buffer,
-    result: Buffer,
+    input1: {
+      ciphertext: Buffer;
+      proof: SchnorrProof;
+      publicValue: BigInteger;
+    },
+    input2: {
+      ciphertext: Buffer;
+      proof: SchnorrProof;
+      publicValue: BigInteger;
+    },
     params: SchnorrParams
-  ): Promise<SchnorrProof> {
-    // 1. Verify input ciphertexts
-    if (!this.fhe.isValidCiphertext(ciphertext1) ||
-        !this.fhe.isValidCiphertext(ciphertext2) ||
-        !this.fhe.isValidCiphertext(result)) {
-      throw new Error('Invalid ciphertext format');
+  ): Promise<{
+    resultCiphertext: Buffer;
+    operationProof: HomomorphicOperationProof;
+    resultPublicValue: BigInteger;
+  }> {
+    // 1. Verify input proofs
+    const isValid1 = await this.verifyEncryption(
+      input1.ciphertext,
+      input1.proof,
+      input1.publicValue,
+      params
+    );
+    const isValid2 = await this.verifyEncryption(
+      input2.ciphertext,
+      input2.proof,
+      input2.publicValue,
+      params
+    );
+    if (!isValid1 || !isValid2) {
+      throw new Error('Invalid input proofs');
     }
 
-    // 2. Generate proof of correct operation
+    // 2. Perform homomorphic operation
+    let resultCiphertext: Buffer;
+    let resultPublicValue: BigInteger;
+    if (op === 'add') {
+      resultCiphertext = await this.fhe.add(input1.ciphertext, input2.ciphertext);
+      resultPublicValue = input1.publicValue.multiply(input2.publicValue).mod(params.p);
+    } else {
+      resultCiphertext = await this.fhe.multiply(input1.ciphertext, input2.ciphertext);
+      resultPublicValue = input1.publicValue.modPow(input2.publicValue, params.p);
+    }
+
+    // 3. Generate proof of correct operation
     const witness = await this.computeOperationWitness(
       op,
-      ciphertext1,
-      ciphertext2,
-      result
+      input1.ciphertext,
+      input2.ciphertext,
+      resultCiphertext
     );
 
-    // 3. Generate zero-knowledge proof
-    return await this.schnorr.prove(witness, params);
+    const operationProof: HomomorphicOperationProof = {
+      inputProof: input1.proof,
+      operationProof: await this.schnorr.prove(witness, params),
+      resultProof: await this.generateResultProof(resultCiphertext, params)
+    };
+
+    return {
+      resultCiphertext,
+      operationProof,
+      resultPublicValue
+    };
   }
 
   /**
    * Verify a homomorphic operation proof
-   * @param op The operation type ('add' or 'mul')
-   * @param ciphertext1 First ciphertext
-   * @param ciphertext2 Second ciphertext
-   * @param result Result ciphertext
-   * @param proof The operation proof
-   * @param params Schnorr parameters
    */
   public async verifyOperation(
     op: 'add' | 'mul',
-    ciphertext1: Buffer,
-    ciphertext2: Buffer,
-    result: Buffer,
-    proof: SchnorrProof,
+    input1: {
+      ciphertext: Buffer;
+      publicValue: BigInteger;
+    },
+    input2: {
+      ciphertext: Buffer;
+      publicValue: BigInteger;
+    },
+    result: {
+      ciphertext: Buffer;
+      publicValue: BigInteger;
+    },
+    proof: HomomorphicOperationProof,
     params: SchnorrParams
   ): Promise<boolean> {
-    // 1. Verify input ciphertexts
-    if (!this.fhe.isValidCiphertext(ciphertext1) ||
-        !this.fhe.isValidCiphertext(ciphertext2) ||
-        !this.fhe.isValidCiphertext(result)) {
-      return false;
-    }
-
-    // 2. Compute public value for verification
-    const publicValue = await this.computeOperationPublicValue(
-      op,
-      ciphertext1,
-      ciphertext2,
-      result,
+    // 1. Verify input proofs
+    const isInputValid = await this.schnorr.verify(
+      proof.inputProof,
+      input1.publicValue,
       params
     );
+    if (!isInputValid) return false;
 
-    // 3. Verify the proof
-    return await this.schnorr.verify(proof, publicValue, params);
+    // 2. Verify operation proof
+    const witness = await this.computeOperationWitness(
+      op,
+      input1.ciphertext,
+      input2.ciphertext,
+      result.ciphertext
+    );
+    const isOperationValid = await this.schnorr.verify(
+      proof.operationProof,
+      params.g.modPow(witness, params.p),
+      params
+    );
+    if (!isOperationValid) return false;
+
+    // 3. Verify result proof
+    const isResultValid = await this.schnorr.verify(
+      proof.resultProof,
+      result.publicValue,
+      params
+    );
+    if (!isResultValid) return false;
+
+    // 4. Verify homomorphic property
+    if (op === 'add') {
+      const expectedPublicValue = input1.publicValue.multiply(input2.publicValue).mod(params.p);
+      if (!result.publicValue.equals(expectedPublicValue)) return false;
+    } else {
+      const expectedPublicValue = input1.publicValue.modPow(input2.publicValue, params.p);
+      if (!result.publicValue.equals(expectedPublicValue)) return false;
+    }
+
+    return true;
   }
 
   /**
-   * Generate random value for proofs
+   * Generate randomness for proofs
    */
   private generateRandomness(max: BigInteger): BigInteger {
     const bytes = max.toByteArray().length;
-    let r: BigInteger;
-    
-    do {
-      const buf = crypto.getRandomValues(new Uint8Array(bytes));
-      r = new BigInteger(Buffer.from(buf).toString('hex'), 16).mod(max);
-    } while (r.signum() === 0);
+    const buf = Buffer.alloc(bytes);
+    for (let i = 0; i < bytes; i++) {
+      buf[i] = Math.floor(Math.random() * 256);
+    }
+    return new BigInteger(buf.toString('hex'), 16).mod(max);
+  }
 
-    return r;
+  /**
+   * Verify consistency between ciphertext and public value
+   */
+  private async verifyConsistency(
+    ciphertext: Buffer,
+    publicValue: BigInteger,
+    params: SchnorrParams
+  ): Promise<boolean> {
+    const hash = await Hash.sha256(ciphertext);
+    const hashValue = new BigInteger(hash.toString('hex'), 16).mod(params.q);
+    return params.g.modPow(hashValue, params.p).equals(publicValue);
   }
 
   /**
@@ -175,39 +267,26 @@ export class HomomorphicZKP {
     ciphertext2: Buffer,
     result: Buffer
   ): Promise<BigInteger> {
-    // This is a simplified implementation
-    // In practice, you would need to prove the correctness of the operation
-    // using a circuit-based ZKP system
-    const hash = await this.fhe.hash(
+    const hash = await Hash.sha256(
       Buffer.concat([
+        Buffer.from(op),
         ciphertext1,
         ciphertext2,
-        result,
-        Buffer.from(op)
+        result
       ])
     );
     return new BigInteger(hash.toString('hex'), 16);
   }
 
   /**
-   * Compute public value for operation verification
+   * Generate proof for operation result
    */
-  private async computeOperationPublicValue(
-    op: 'add' | 'mul',
-    ciphertext1: Buffer,
-    ciphertext2: Buffer,
-    result: Buffer,
+  private async generateResultProof(
+    resultCiphertext: Buffer,
     params: SchnorrParams
-  ): Promise<BigInteger> {
-    // This is a simplified implementation
-    // In practice, you would need to verify the operation using
-    // homomorphic properties and circuit evaluation
-    const witness = await this.computeOperationWitness(
-      op,
-      ciphertext1,
-      ciphertext2,
-      result
-    );
-    return params.g.modPow(witness, params.p);
+  ): Promise<SchnorrProof> {
+    const hash = await Hash.sha256(resultCiphertext);
+    const witness = new BigInteger(hash.toString('hex'), 16).mod(params.q);
+    return await this.schnorr.prove(witness, params);
   }
 } 

@@ -22,16 +22,18 @@ export interface SchnorrProof {
 
 /**
  * Implementation of the Schnorr zero-knowledge proof protocol
+ * Proves knowledge of x in y = g^x mod p without revealing x
  */
 export class SchnorrProtocol {
   private readonly ONE = new BigInteger('1');
+  private readonly TWO = new BigInteger('2');
 
   /**
    * Generate protocol parameters
    * @param bitLength Bit length of prime p
    */
   public static async generateParams(bitLength: number): Promise<SchnorrParams> {
-    // Generate prime p such that p-1 = 2q where q is also prime
+    // Generate prime p such that p-1 = 2q where q is also prime (safe prime)
     let p: BigInteger;
     let q: BigInteger;
     
@@ -55,15 +57,22 @@ export class SchnorrProtocol {
     // Verify parameters
     this.verifyParams(params);
 
-    // Generate random value r
+    // Verify secret is in range [1, q-1]
+    if (secret.compareTo(this.ONE) < 0 || secret.compareTo(params.q) >= 0) {
+      throw new Error('Secret must be in range [1, q-1]');
+    }
+
+    // Generate random value r in [1, q-1]
     const r = this.generateRandom(params.q);
 
     // Compute commitment t = g^r mod p
     const commitment = params.g.modPow(r, params.p);
 
-    // Compute challenge c = H(g, y, t)
+    // Compute public value y = g^x mod p
     const publicValue = params.g.modPow(secret, params.p);
-    const challenge = await this.computeChallenge(params.g, publicValue, commitment);
+
+    // Compute challenge c = H(g || y || t)
+    const challenge = await this.computeChallenge(params.g, publicValue, commitment, params.q);
 
     // Compute response s = r + x * c mod q
     const response = r.add(secret.multiply(challenge)).mod(params.q);
@@ -89,6 +98,14 @@ export class SchnorrProtocol {
     // Verify parameters
     this.verifyParams(params);
 
+    // Verify proof components are in range [1, p-1]
+    if (proof.commitment.compareTo(this.ONE) < 0 || proof.commitment.compareTo(params.p) >= 0) {
+      return false;
+    }
+    if (proof.response.compareTo(this.ONE) < 0 || proof.response.compareTo(params.q) >= 0) {
+      return false;
+    }
+
     // Verify commitment t = g^s * y^(-c) mod p
     const lhs = params.g.modPow(proof.response, params.p);
     const rhs = proof.commitment.multiply(
@@ -99,11 +116,12 @@ export class SchnorrProtocol {
       return false;
     }
 
-    // Verify challenge c = H(g, y, t)
+    // Verify challenge c = H(g || y || t)
     const expectedChallenge = await this.computeChallenge(
       params.g,
       publicValue,
-      proof.commitment
+      proof.commitment,
+      params.q
     );
 
     return proof.challenge.equals(expectedChallenge);
@@ -133,6 +151,10 @@ export class SchnorrProtocol {
     do {
       const buf = randomBytes(Math.ceil(bitLength / 8));
       prime = new BigInteger(buf.toString('hex'), 16);
+      // Ensure the number has exactly bitLength bits
+      prime.setBit(bitLength - 1);
+      // Ensure the number is odd
+      prime.setBit(0);
     } while (!prime.isProbablePrime(50));
 
     return prime;
@@ -150,7 +172,10 @@ export class SchnorrProtocol {
     let g: BigInteger;
     
     do {
-      h = this.generateRandom(p);
+      const bytes = p.toByteArray().length;
+      const buf = randomBytes(bytes);
+      h = new BigInteger(buf.toString('hex'), 16).mod(p);
+      // Compute g = h^2 mod p
       g = h.modPow(TWO, p);
     } while (
       g.equals(ONE) ||
@@ -166,7 +191,8 @@ export class SchnorrProtocol {
   private async computeChallenge(
     g: BigInteger,
     y: BigInteger,
-    t: BigInteger
+    t: BigInteger,
+    q: BigInteger
   ): Promise<BigInteger> {
     const hash = await Hash.sha256(
       Buffer.concat([
@@ -176,7 +202,7 @@ export class SchnorrProtocol {
       ])
     );
 
-    return new BigInteger(hash.toString('hex'), 16);
+    return new BigInteger(hash.toString('hex'), 16).mod(q);
   }
 
   /**
@@ -199,6 +225,9 @@ export class SchnorrProtocol {
     }
 
     // Verify generator g
+    if (params.g.compareTo(this.TWO) < 0 || params.g.compareTo(params.p) >= 0) {
+      throw new Error('Generator g must be in range [2, p-1]');
+    }
     if (params.g.modPow(params.q, params.p).equals(this.ONE)) {
       throw new Error('Parameter g must be a generator of order q');
     }
