@@ -160,9 +160,9 @@ export class AdvancedFHE extends FHE {
     // Approximate sign function using polynomial
     const coefficients = [
       0n,                     // constant term
-      1n,                     // x
-      -0.2n,                 // x^2
-      0.04n                  // x^3
+      4n,                     // x
+      16n,                 // x^2
+      64n                  // x^3
     ];
     
     return await this.evaluatePolynomial(diff, coefficients, evaluationKey);

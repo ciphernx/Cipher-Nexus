@@ -1,32 +1,101 @@
-build:api:
+build:ai:
   stage: build
   script:
-    - cd packages/api
+    - cd packages/ai
     - npm run build
+
   artifacts:
     paths:
-      - packages/api/dist/
+      - packages/ai/dist
 
-test:api:
+build:protocol:
+  stage: build
+  script:
+    - cd packages/protocol
+    - npm run build
+
+  artifacts:
+    paths:
+      - packages/protocol/dist
+
+build:crypto:
+  stage: build
+  script:
+    - cd packages/crypto
+    - npm run build
+
+  artifacts:
+    paths:
+      - packages/crypto/dist
+
+test:ai:
   stage: test
   script:
-    - cd packages/api
+    - cd packages/ai
     - npm run test:coverage
   coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
   artifacts:
     reports:
       coverage_report:
         coverage_format: cobertura
-        path: packages/api/coverage/cobertura-coverage.xml
+        path: packages/ai/coverage/cobertura-coverage.xml
 
-integration:api:
+integration:ai:
   stage: test
   services:
     - docker:dind
   script:
     - docker-compose up -d
-    - cd packages/api
+    - cd packages/ai
     - npm run test:integration
   artifacts:
     reports:
-      junit: packages/api/test-results/integration/*.xml 
+      junit: packages/ai/test-results/integration/*.xml
+
+test:crypto:
+  stage: test
+  script:
+    - cd packages/crypto
+    - npm run test:coverage
+  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: packages/crypto/coverage/cobertura-coverage.xml
+
+integration:crytpo:
+  stage: test
+  services:
+    - docker:dind
+  script:
+    - docker-compose up -d
+    - cd packages/crypto
+    - npm run test:integration
+  artifacts:
+    reports:
+      junit: packages/crypto/test-results/integration/*.xml
+
+test:protocol:
+  stage: test
+  script:
+    - cd packages/protocol
+    - npm run test:coverage
+  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: packages/protocol/coverage/cobertura-coverage.xml
+
+integration:protocol:
+  stage: test
+  services:
+    - docker:dind
+  script:
+    - docker-compose up -d
+    - cd packages/protocol
+    - npm run test:integration
+  artifacts:
+    reports:
+      junit: packages/protocol/test-results/integration/*.xml
