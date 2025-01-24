@@ -1,0 +1,51 @@
+stages:
+  - lint
+  - test
+  - build
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
+
+include:
+  - local: .gitlab/ci/*.yml
+
+cache:
+  paths:
+    - node_modules/
+    - packages/*/node_modules/
+
+lint:
+  stage: lint
+  script:
+    - npm run lint
+    - npm run type-check
+
+test:
+  stage: test
+  script:
+    - npm run test:coverage
+  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura-coverage.xml
+
+build:
+  stage: build
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+
+deploy:
+  stage: deploy
+  script:
+    - npm run deploy
+  environment:
+    name: production
+  only:
+    - master 

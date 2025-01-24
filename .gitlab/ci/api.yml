@@ -1,0 +1,32 @@
+build:api:
+  stage: build
+  script:
+    - cd packages/api
+    - npm run build
+  artifacts:
+    paths:
+      - packages/api/dist/
+
+test:api:
+  stage: test
+  script:
+    - cd packages/api
+    - npm run test:coverage
+  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: packages/api/coverage/cobertura-coverage.xml
+
+integration:api:
+  stage: test
+  services:
+    - docker:dind
+  script:
+    - docker-compose up -d
+    - cd packages/api
+    - npm run test:integration
+  artifacts:
+    reports:
+      junit: packages/api/test-results/integration/*.xml 
