@@ -2,38 +2,43 @@ import { randomBytes } from 'crypto';
 import { BigInteger } from 'jsbn';
 import { Hash } from '../hash';
 
+/**
+ * Schnorr protocol parameters
+ */
 export interface SchnorrParams {
   p: BigInteger;  // Large prime
   q: BigInteger;  // Prime divisor of p-1
   g: BigInteger;  // Generator of order q
 }
 
+/**
+ * Schnorr proof
+ */
 export interface SchnorrProof {
   commitment: BigInteger;  // g^r mod p
   challenge: BigInteger;   // Hash(g, h, commitment)
   response: BigInteger;    // r + x * challenge mod q
 }
 
-export class Schnorr {
-  static readonly ONE = new BigInteger('1');
-  static readonly TWO = new BigInteger('2');
+/**
+ * Implementation of the Schnorr zero-knowledge proof protocol
+ */
+export class SchnorrProtocol {
+  private readonly ONE = new BigInteger('1');
 
   /**
-   * Generate Schnorr group parameters
-   * @param {number} bits - Size of prime p in bits
-   * @returns {Promise<SchnorrParams>} Generated parameters
+   * Generate protocol parameters
+   * @param bitLength Bit length of prime p
    */
-  static async generateParams(bits: number = 2048): Promise<SchnorrParams> {
-    // Find a prime p such that p = 2q + 1 where q is also prime (safe prime)
-    let p: BigInteger, q: BigInteger;
-    while (true) {
-      q = await this.generatePrime(bits - 1);
-      p = q.multiply(this.TWO).add(this.ONE);
-      
-      if (await this.isProbablePrime(p, 20)) {
-        break;
-      }
-    }
+  public static async generateParams(bitLength: number): Promise<SchnorrParams> {
+    // Generate prime p such that p-1 = 2q where q is also prime
+    let p: BigInteger;
+    let q: BigInteger;
+    
+    do {
+      q = await this.generatePrime(bitLength - 1);
+      p = q.shiftLeft(1).add(this.ONE);
+    } while (!p.isProbablePrime(50));
 
     // Find generator g of order q
     const g = await this.findGenerator(p, q);
@@ -43,145 +48,159 @@ export class Schnorr {
 
   /**
    * Generate a proof of knowledge of discrete logarithm
-   * @param {BigInteger} x - Secret value (discrete logarithm)
-   * @param {SchnorrParams} params - Group parameters
-   * @returns {Promise<SchnorrProof>} Generated proof
+   * @param secret Secret value x where y = g^x mod p
+   * @param params Protocol parameters
    */
-  static async prove(x: BigInteger, params: SchnorrParams): Promise<SchnorrProof> {
-    const { p, q, g } = params;
+  public async prove(secret: BigInteger, params: SchnorrParams): Promise<SchnorrProof> {
+    // Verify parameters
+    this.verifyParams(params);
 
-    // Generate random r
-    const r = await this.generateRandom(q);
+    // Generate random value r
+    const r = this.generateRandom(params.q);
 
-    // Compute commitment T = g^r mod p
-    const commitment = g.modPow(r, p);
+    // Compute commitment t = g^r mod p
+    const commitment = params.g.modPow(r, params.p);
 
-    // Compute challenge c = H(g || h || T) where h = g^x mod p
-    const h = g.modPow(x, p);
-    const challengeInput = Buffer.concat([
-      Buffer.from(g.toString(16), 'hex'),
-      Buffer.from(h.toString(16), 'hex'),
-      Buffer.from(commitment.toString(16), 'hex')
-    ]);
-    const challengeHash = await Hash.sha256(challengeInput);
-    const challenge = new BigInteger(challengeHash.toString('hex'), 16).mod(q);
+    // Compute challenge c = H(g, y, t)
+    const publicValue = params.g.modPow(secret, params.p);
+    const challenge = await this.computeChallenge(params.g, publicValue, commitment);
 
     // Compute response s = r + x * c mod q
-    const response = r.add(x.multiply(challenge)).mod(q);
+    const response = r.add(secret.multiply(challenge)).mod(params.q);
 
-    return { commitment, challenge, response };
+    return {
+      commitment,
+      challenge,
+      response
+    };
   }
 
   /**
    * Verify a Schnorr proof
-   * @param {BigInteger} h - Public value (g^x mod p)
-   * @param {SchnorrProof} proof - Proof to verify
-   * @param {SchnorrParams} params - Group parameters
-   * @returns {Promise<boolean>} Whether the proof is valid
+   * @param proof The proof to verify
+   * @param publicValue Public value y = g^x mod p
+   * @param params Protocol parameters
    */
-  static async verify(h: BigInteger, proof: SchnorrProof, params: SchnorrParams): Promise<boolean> {
-    const { p, q, g } = params;
-    const { commitment, challenge, response } = proof;
+  public async verify(
+    proof: SchnorrProof,
+    publicValue: BigInteger,
+    params: SchnorrParams
+  ): Promise<boolean> {
+    // Verify parameters
+    this.verifyParams(params);
 
-    // Verify that g^s = T * h^c mod p
-    const left = g.modPow(response, p);
-    const right = commitment.multiply(h.modPow(challenge, p)).mod(p);
+    // Verify commitment t = g^s * y^(-c) mod p
+    const lhs = params.g.modPow(proof.response, params.p);
+    const rhs = proof.commitment.multiply(
+      publicValue.modPow(proof.challenge, params.p).modInverse(params.p)
+    ).mod(params.p);
 
-    if (!left.equals(right)) {
+    if (!lhs.equals(rhs)) {
       return false;
     }
 
-    // Verify challenge = H(g || h || T)
-    const challengeInput = Buffer.concat([
-      Buffer.from(g.toString(16), 'hex'),
-      Buffer.from(h.toString(16), 'hex'),
-      Buffer.from(commitment.toString(16), 'hex')
-    ]);
-    const challengeHash = await Hash.sha256(challengeInput);
-    const computedChallenge = new BigInteger(challengeHash.toString('hex'), 16).mod(q);
+    // Verify challenge c = H(g, y, t)
+    const expectedChallenge = await this.computeChallenge(
+      params.g,
+      publicValue,
+      proof.commitment
+    );
 
-    return challenge.equals(computedChallenge);
+    return proof.challenge.equals(expectedChallenge);
   }
 
   /**
-   * Generate a random number in the range [0, max)
+   * Generate a random value in range [1, max-1]
    */
-  static async generateRandom(max: BigInteger): Promise<BigInteger> {
-    const bytes = Math.ceil(max.bitLength() / 8);
+  private generateRandom(max: BigInteger): BigInteger {
+    const bytes = max.toByteArray().length;
     let r: BigInteger;
+    
     do {
-      const buffer = randomBytes(bytes);
-      const hex = buffer.toString('hex');
-      r = new BigInteger(hex, 16);
-    } while (r.compareTo(max) >= 0);
+      const buf = randomBytes(bytes);
+      r = new BigInteger(buf.toString('hex'), 16).mod(max);
+    } while (r.equals(this.ONE) || r.signum() === 0);
+
     return r;
   }
 
-  // Helper functions
-  private static async generatePrime(bits: number): Promise<BigInteger> {
-    const minIterations = 20;
+  /**
+   * Generate a probable prime number of given bit length
+   */
+  private static async generatePrime(bitLength: number): Promise<BigInteger> {
+    let prime: BigInteger;
     
-    while (true) {
-      const bytes = Math.ceil(bits / 8);
-      const buffer = randomBytes(bytes);
-      const hex = buffer.toString('hex');
-      const n = new BigInteger(hex, 16);
-      n.setBit(bits - 1);
-      n.setBit(0);
-      
-      if (await this.isProbablePrime(n, minIterations)) {
-        return n;
-      }
-    }
+    do {
+      const buf = randomBytes(Math.ceil(bitLength / 8));
+      prime = new BigInteger(buf.toString('hex'), 16);
+    } while (!prime.isProbablePrime(50));
+
+    return prime;
   }
 
-  private static async isProbablePrime(n: BigInteger, iterations: number): Promise<boolean> {
-    if (n.compareTo(this.TWO) < 0) return false;
-    if (n.equals(this.TWO)) return true;
-    if (n.mod(this.TWO).equals(this.ZERO)) return false;
-
-    let s = 0;
-    let d = n.subtract(this.ONE);
-    while (d.mod(this.TWO).equals(this.ZERO)) {
-      s++;
-      d = d.divide(this.TWO);
-    }
-
-    for (let i = 0; i < iterations; i++) {
-      const a = await this.generateRandom(n.subtract(this.TWO));
-      let x = a.modPow(d, n);
-
-      if (x.equals(this.ONE) || x.equals(n.subtract(this.ONE))) continue;
-
-      let isPrime = false;
-      for (let r = 1; r < s; r++) {
-        x = x.multiply(x).mod(n);
-        if (x.equals(n.subtract(this.ONE))) {
-          isPrime = true;
-          break;
-        }
-        if (x.equals(this.ONE)) return false;
-      }
-
-      if (!isPrime) return false;
-    }
-
-    return true;
-  }
-
+  /**
+   * Find a generator of order q in Z_p*
+   */
   private static async findGenerator(p: BigInteger, q: BigInteger): Promise<BigInteger> {
-    const pMinusOne = p.subtract(this.ONE);
-    const factor = pMinusOne.divide(q);
+    const ONE = new BigInteger('1');
+    const TWO = new BigInteger('2');
+    
+    // Find h such that g = h^2 mod p is a generator
+    let h: BigInteger;
+    let g: BigInteger;
+    
+    do {
+      h = this.generateRandom(p);
+      g = h.modPow(TWO, p);
+    } while (
+      g.equals(ONE) ||
+      g.modPow(q, p).equals(ONE)
+    );
 
-    while (true) {
-      const h = await this.generateRandom(p.subtract(this.TWO));
-      const g = h.modPow(factor, p);
-
-      if (!g.equals(this.ONE)) {
-        return g;
-      }
-    }
+    return g;
   }
 
-  private static readonly ZERO = new BigInteger('0');
+  /**
+   * Compute Fiat-Shamir challenge
+   */
+  private async computeChallenge(
+    g: BigInteger,
+    y: BigInteger,
+    t: BigInteger
+  ): Promise<BigInteger> {
+    const hash = await Hash.sha256(
+      Buffer.concat([
+        Buffer.from(g.toString(16), 'hex'),
+        Buffer.from(y.toString(16), 'hex'),
+        Buffer.from(t.toString(16), 'hex')
+      ])
+    );
+
+    return new BigInteger(hash.toString('hex'), 16);
+  }
+
+  /**
+   * Verify protocol parameters
+   */
+  private verifyParams(params: SchnorrParams): void {
+    // Verify prime p
+    if (!params.p.isProbablePrime(50)) {
+      throw new Error('Parameter p must be prime');
+    }
+
+    // Verify prime q
+    if (!params.q.isProbablePrime(50)) {
+      throw new Error('Parameter q must be prime');
+    }
+
+    // Verify p = 2q + 1
+    if (!params.p.subtract(this.ONE).equals(params.q.shiftLeft(1))) {
+      throw new Error('Parameter p must equal 2q + 1');
+    }
+
+    // Verify generator g
+    if (params.g.modPow(params.q, params.p).equals(this.ONE)) {
+      throw new Error('Parameter g must be a generator of order q');
+    }
+  }
 } 

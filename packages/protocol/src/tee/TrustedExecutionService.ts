@@ -57,7 +57,7 @@ export class TrustedExecutionService extends EventEmitter {
 
       await this.manager.startEnclave(enclaveId);
 
-      // 验证enclave
+      // Verify enclave
       const attestation = await this.manager.verifyAttestation(enclaveId);
       if (!attestation.isValid) {
         await this.manager.stopEnclave(enclaveId);
@@ -80,16 +80,16 @@ export class TrustedExecutionService extends EventEmitter {
     try {
       const startTime = Date.now();
 
-      // 执行代码
+      // Execute code
       const output = await this.manager.executeInEnclave(enclaveId, code, input);
 
-      // 获取执行后的enclave状态
+      // Get enclave state after execution
       const state = await this.manager.getEnclaveState(enclaveId);
       if (!state) {
         throw new Error('Failed to get enclave state');
       }
 
-      // 生成执行结果
+      // Generate execution result
       const result: ExecutionResult = {
         success: true,
         output,
@@ -168,7 +168,7 @@ export class TrustedExecutionService extends EventEmitter {
   }
 
   private async signExecutionResult(result: any): Promise<string> {
-    // 在实际实现中，这里需要使用TEE的密钥进行签名
+    // In actual implementation, TEE's key should be used for signing here
     const { createHash } = await import('crypto');
     const hash = createHash('sha256');
     hash.update(JSON.stringify(result));

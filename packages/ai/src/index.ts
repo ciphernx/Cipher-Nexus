@@ -13,3 +13,6 @@ export { DataAugmentor } from './utils/data-augmentor';
 export { ModelCompressor } from './utils/model-compressor';
 export { DistributedTrainer } from './utils/distributed-trainer';
 export { ModelInterpreter } from './utils/model-interpreter';
+
+export { FederatedLearning } from './core/federated';
+export * from './types';

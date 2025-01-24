@@ -1,49 +1,32 @@
 {
-  "name": "@ciphernx/cipher-nexus",
-  "version": "0.1.10",
-  "description": "A privacy-preserving AI framework that enables secure federated learning and data marketplace, protecting data privacy while advancing AI capabilities.",
-  "private": false,
-  "public": true,
-  "homepage": "https://github.com/ciphernx/Cipher-Nexus#readme",
-  "icon": "https://raw.githubusercontent.com/ciphernx/Cipher-Nexus/main/docs/assets/logo.svg",
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com/",
-    "access": "public"
+  "name": "cipher-nexus",
+  "version": "0.1.0",
+  "description": "A secure and privacy-preserving federated learning framework",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -b packages/*",
+    "test": "mocha -r ts-node/register 'packages/*/test/**/*.test.ts'",
+    "lint": "eslint . --ext .ts",
+    "format": "prettier --write \"**/*.ts\""
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/ciphernx/Cipher-Nexus.git"
+  "devDependencies": {
+    "@types/chai": "^4.3.0",
+    "@types/chai-as-promised": "^7.1.5",
+    "@types/jsbn": "^1.2.33",
+    "@types/mocha": "^9.1.0",
+    "@types/node": "^17.0.21",
+    "chai": "^4.3.6",
+    "chai-as-promised": "^7.1.1",
+    "jsbn": "^1.1.0",
+    "mocha": "^9.2.2",
+    "nyc": "^15.1.0",
+    "ts-node": "^10.7.0",
+    "typescript": "^4.6.2",
+    "eslint": "^8.10.0",
+    "prettier": "^2.5.1"
   },
   "workspaces": [
     "packages/*"
   ],
-  "scripts": {
-    "dev": "npm run dev -w @ciphernx/ui",
-    "build": "npm run build --workspaces",
-    "test": "npm run test --workspaces",
-    "lint": "npm run lint --workspaces",
-    "format": "npm run format --workspaces"
-  },
-  "devDependencies": {
-    "@playwright/test": "^1.49.1",
-    "@tailwindcss/forms": "^0.5.10",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.2.0",
-    "@typescript-eslint/eslint-plugin": "^5.54.1",
-    "@typescript-eslint/parser": "^5.54.1",
-    "eslint": "^8.35.0",
-    "eslint-plugin-react": "^7.33.2",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "msw": "^2.7.0",
-    "prettier": "^2.8.4",
-    "typescript": "^5.0.0",
-    "vitest": "^3.0.2"
-  },
-  "dependencies": {
-    "@headlessui/react": "^2.2.0",
-    "@heroicons/react": "^2.2.0",
-    "@tanstack/react-query": "^5.64.2",
-    "@tanstack/react-query-devtools": "^5.64.2",
-    "recharts": "^2.15.0"
-  }
+  "private": true
 }

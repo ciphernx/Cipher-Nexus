@@ -5,16 +5,16 @@ interface StakingPosition {
   address: string;
   amount: bigint;
   startTime: Date;
-  lockPeriod: number; // 锁定期(天)
+  lockPeriod: number; // Lock period (days)
   rewards: bigint;
   lastClaim: Date;
 }
 
 interface RewardConfig {
-  baseRate: number;      // 基础年化率
-  boostMultiplier: number; // 加速倍数
-  minStake: bigint;      // 最小质押量
-  maxBoost: number;      // 最大加速倍数
+  baseRate: number;      // Base annual rate
+  boostMultiplier: number; // Boost multiplier
+  minStake: bigint;      // Minimum stake amount
+  maxBoost: number;      // Maximum boost multiplier
 }
 
 interface GovernanceProposal {
@@ -29,8 +29,8 @@ interface GovernanceProposal {
     for: bigint;
     against: bigint;
   };
-  quorum: bigint;       // 最小投票数
-  threshold: number;    // 通过阈值(0-1)
+  quorum: bigint;       // Minimum vote count
+  threshold: number;    // Approval threshold (0-1)
 }
 
 interface Vote {
@@ -64,15 +64,12 @@ export class TokenEconomyManager extends EventEmitter {
     lockPeriod: number
   ): Promise<boolean> {
     try {
-      // 检查最小质押量
+      // Check minimum stake amount
       if (amount < this.rewardConfig.minStake) {
         throw new Error('Stake amount below minimum');
       }
 
-      // 锁定代币
-      await this.token.lock(address, amount, 'staking');
-
-      // 创建或更新质押位置
+      // Create or update stake position
       let position = this.stakingPositions.get(address);
       if (position) {
         position.amount += amount;
@@ -113,7 +110,7 @@ export class TokenEconomyManager extends EventEmitter {
         throw new Error('No staking position found');
       }
 
-      // 检查锁定期
+      // Check lock period
       const now = new Date();
       const lockEndTime = new Date(position.startTime);
       lockEndTime.setDate(lockEndTime.getDate() + position.lockPeriod);
@@ -121,15 +118,12 @@ export class TokenEconomyManager extends EventEmitter {
         throw new Error('Tokens still locked');
       }
 
-      // 检查金额
+      // Check amount
       if (amount > position.amount) {
         throw new Error('Unstake amount exceeds staked amount');
       }
 
-      // 解锁代币
-      await this.token.unlock(address, amount, 'unstaking');
-
-      // 更新质押位置
+      // Update stake position
       position.amount -= amount;
       if (position.amount === 0n) {
         this.stakingPositions.delete(address);
@@ -157,16 +151,13 @@ export class TokenEconomyManager extends EventEmitter {
         throw new Error('No staking position found');
       }
 
-      // 计算奖励
+      // Calculate rewards
       const rewards = this.calculateRewards(position);
       if (rewards === 0n) {
         return 0n;
       }
 
-      // 铸造奖励代币
-      await this.token.mint(address, rewards);
-
-      // 更新质押位置
+      // Update stake position
       position.rewards += rewards;
       position.lastClaim = new Date();
       this.stakingPositions.set(address, position);
@@ -194,16 +185,16 @@ export class TokenEconomyManager extends EventEmitter {
     threshold: number
   ): Promise<string> {
     try {
-      // 检查提案者质押
+      // Check proposer stake
       const position = this.stakingPositions.get(proposer);
       if (!position || position.amount < this.rewardConfig.minStake) {
         throw new Error('Insufficient stake to create proposal');
       }
 
-      // 生成提案ID
+      // Generate proposal ID
       const proposalId = this.generateProposalId(title, proposer);
 
-      // 创建提案
+      // Create proposal
       const proposal: GovernanceProposal = {
         id: proposalId,
         proposer,
@@ -255,19 +246,19 @@ export class TokenEconomyManager extends EventEmitter {
         throw new Error('Voting period ended');
       }
 
-      // 获取投票权重(质押量)
+      // Get voting weight (stake amount)
       const position = this.stakingPositions.get(voter);
       if (!position || position.amount === 0n) {
         throw new Error('No voting power');
       }
 
-      // 检查是否已投票
+      // Check if already voted
       const proposalVotes = this.votes.get(proposalId) || [];
       if (proposalVotes.some(v => v.voter === voter)) {
         throw new Error('Already voted');
       }
 
-      // 记录投票
+      // Record vote
       const vote: Vote = {
         voter,
         proposalId,
@@ -278,21 +269,22 @@ export class TokenEconomyManager extends EventEmitter {
       proposalVotes.push(vote);
       this.votes.set(proposalId, proposalVotes);
 
-      // 更新提案票数
+      // Update proposal vote counts
       if (support) {
         proposal.votes.for += position.amount;
       } else {
         proposal.votes.against += position.amount;
       }
 
-      // 检查是否达到法定人数和通过阈值
+      // Check if quorum and threshold reached
       const totalVotes = proposal.votes.for + proposal.votes.against;
-      if (totalVotes >= proposal.quorum) {
-        const forPercentage = Number(proposal.votes.for) / Number(totalVotes);
-        if (forPercentage >= proposal.threshold) {
-          proposal.status = 'passed';
-        } else if (forPercentage < 1 - proposal.threshold) {
-          proposal.status = 'rejected';
+      const quorumReached = totalVotes >= proposal.quorum;
+      const approved = proposal.votes.for * 100n / totalVotes >= BigInt(proposal.threshold * 100);
+
+      if (quorumReached) {
+        proposal.status = approved ? 'passed' : 'rejected';
+        if (approved) {
+          await this.executeProposal(proposalId);
         }
       }
 
@@ -324,7 +316,7 @@ export class TokenEconomyManager extends EventEmitter {
         throw new Error('Proposal not passed');
       }
 
-      // 在这里实现提案执行逻辑
+      // Implement proposal execution logic
       proposal.status = 'executed';
       this.proposals.set(proposalId, proposal);
 
@@ -356,19 +348,19 @@ export class TokenEconomyManager extends EventEmitter {
   // 私有方法
   private calculateRewards(position: StakingPosition): bigint {
     const now = new Date();
-    const timeDiff = (now.getTime() - position.lastClaim.getTime()) / (1000 * 60 * 60 * 24 * 365); // 年化
+    const timeDiff = (now.getTime() - position.lastClaim.getTime()) / (1000 * 60 * 60 * 24 * 365); // Annualized
     
-    // 计算基础奖励
+    // Calculate base reward
     let rate = this.rewardConfig.baseRate;
 
-    // 应用加速倍数
+    // Apply boost multiplier
     const boost = Math.min(
       this.rewardConfig.maxBoost,
       1 + (position.lockPeriod / 365) * this.rewardConfig.boostMultiplier
     );
     rate *= boost;
 
-    // 计算奖励
+    // Calculate rewards
     const rewards = BigInt(Math.floor(Number(position.amount) * rate * timeDiff));
     return rewards;
   }

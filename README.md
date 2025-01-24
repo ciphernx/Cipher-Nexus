@@ -81,7 +81,7 @@ graph TD
   - Support for popular AI frameworks
   - Secure model serving and inference
   
-- `@ciphernx/core`: Infrastructure and resource management
+- `@cipher-nexus/core`: Infrastructure and resource management
   - Compute node management
   - Resource allocation
   - Task scheduling
@@ -136,3 +136,86 @@ npm run build
 ## License
 
 MIT License 
+
+## FAQ
+
+### Why does AI need privacy?
+- Data Security: AI training requires large amounts of data that often contains sensitive information (personal information, trade secrets, etc.)
+- Legal Compliance: Global data protection regulations (such as GDPR, CCPA) have strict requirements for data privacy
+- User Trust: Protecting user privacy is key to building user trust and affects AI system adoption rates
+- Abuse Prevention: Prevents AI models from being used for unauthorized purposes or exploited by malicious attackers
+- Cross-organizational Collaboration: Enables different organizations to collaborate on AI while protecting their respective data privacy
+
+### What are the features of our AI privacy framework?
+- Comprehensive Privacy Protection Mechanisms:
+  * Federated learning supports distributed training
+  * Differential privacy protects individual data
+  * Homomorphic encryption enables encrypted computation
+  * Zero-knowledge proofs ensure computation correctness
+- Trusted Execution Environment (TEE) guarantees
+- Flexible data marketplace mechanism
+- Token economy incentive system
+- Modular design for easy extension
+- Complete privacy metrics and audit mechanisms
+
+### Why use our framework?
+- One-stop Solution: Integrates mainstream privacy computing technologies
+- Performance Optimization: Maintains efficiency while protecting privacy
+- Easy to Use: Provides friendly APIs and comprehensive documentation
+- Secure and Reliable: Multi-level security guarantee mechanisms
+- Community Support: Continuous improvement through open source
+- Compliance: Complies with mainstream privacy protection regulations
+
+### Who can use our privacy framework and under what requirements?
+- Target Users:
+  * Enterprise AI teams
+  * Research institutions
+  * Healthcare organizations
+  * Financial institutions
+  * Government departments
+  * Data service providers
+  
+- Application Scenarios:
+  * Cross-organizational data collaboration
+  * Medical data analysis
+  * Financial risk control modeling
+  * Privacy-preserving recommendation systems
+  * Secure multi-party computation
+  * AI applications requiring strict data protection
+
+### How do we empower cryptocurrency?
+- Token Economy System Design:
+  * Utility tokens for computing resources and data access
+  * Governance tokens for community governance
+  * Incentive mechanisms for data providers and validators
+  * Tokenized data assets
+- Privacy Protection Integration:
+  * Zero-knowledge proofs for transaction verification
+  * Homomorphic encryption for encrypted token computation
+  * Secure multi-party computation for private transactions
+  * Ring signatures for transaction anonymity
+- Smart Contract Features:
+  * Automated Market Maker (AMM)
+  * Decentralized trading
+  * Staking contracts
+  * Governance contracts
+- Economic Model Innovation:
+  * Dual-token model
+  * Dynamic pricing mechanism
+  * Deflationary mechanism
+  * Liquidity mining
+- Cross-chain Interoperability:
+  * Cross-chain asset transfer
+  * Cross-chain messaging
+  * Atomic swaps
+  * Asset bridges
+- Security Guarantees:
+  * Multi-signature wallets
+  * Time locks
+  * Oracle integration
+  * Emergency pause
+- Ecosystem Development:
+  * Developer incentives
+  * Community building
+  * Partnership programs
+  * Decentralized Autonomous Organization (DAO) 

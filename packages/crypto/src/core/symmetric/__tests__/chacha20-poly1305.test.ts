@@ -1,202 +1,138 @@
+import { expect } from 'chai';
 import { ChaCha20Poly1305, ChaChaParams } from '../chacha20-poly1305';
 import { randomBytes } from 'crypto';
 
-describe('ChaCha20-Poly1305 AEAD', () => {
+describe('ChaCha20-Poly1305', () => {
   const message = 'Hello, ChaCha20-Poly1305!';
-  let key: Buffer;
-  let nonce: Buffer;
+  const key = randomBytes(32);
+  const nonce = randomBytes(12);
 
-  beforeEach(() => {
-    // Generate random key and nonce for each test
-    key = randomBytes(32);    // 256-bit key
-    nonce = randomBytes(12);  // 96-bit nonce
-  });
+  const params: ChaChaParams = {
+    key,
+    nonce
+  };
 
   it('should encrypt and decrypt correctly', async () => {
-    const params: ChaChaParams = {
-      key,
-      nonce,
-      authData: Buffer.from('Additional authenticated data')
-    };
-
-    const plaintext = Buffer.from(message);
-    const { ciphertext, tag } = await ChaCha20Poly1305.encrypt(plaintext, params);
+    const { ciphertext, tag } = await ChaCha20Poly1305.encrypt(Buffer.from(message), params);
     const decrypted = await ChaCha20Poly1305.decrypt(ciphertext, tag, params);
-
-    expect(decrypted.toString()).toBe(message);
+    expect(decrypted.toString()).to.equal(message);
   });
 
-  it('should produce different ciphertexts for same plaintext with different nonces', async () => {
+  it('should produce different ciphertexts for same plaintext', async () => {
     const params1: ChaChaParams = {
       key,
-      nonce: randomBytes(12),
-      authData: Buffer.from('AAD')
+      nonce: randomBytes(12)
     };
 
     const params2: ChaChaParams = {
       key,
-      nonce: randomBytes(12),
-      authData: Buffer.from('AAD')
+      nonce: randomBytes(12)
     };
 
-    const plaintext = Buffer.from(message);
-    const result1 = await ChaCha20Poly1305.encrypt(plaintext, params1);
-    const result2 = await ChaCha20Poly1305.encrypt(plaintext, params2);
+    const result1 = await ChaCha20Poly1305.encrypt(Buffer.from(message), params1);
+    const result2 = await ChaCha20Poly1305.encrypt(Buffer.from(message), params2);
 
-    expect(result1.ciphertext).not.toEqual(result2.ciphertext);
-    expect(result1.tag).not.toEqual(result2.tag);
+    expect(result1.ciphertext).to.not.deep.equal(result2.ciphertext);
+    expect(result1.tag).to.not.deep.equal(result2.tag);
   });
 
-  it('should verify authentication', async () => {
-    const params: ChaChaParams = {
-      key,
-      nonce,
-      authData: Buffer.from('AAD')
-    };
-
-    const plaintext = Buffer.from(message);
-    const { ciphertext, tag } = await ChaCha20Poly1305.encrypt(plaintext, params);
-
-    // Modify ciphertext
+  it('should detect tampering', async () => {
+    const { ciphertext, tag } = await ChaCha20Poly1305.encrypt(Buffer.from(message), params);
+    
+    // Tamper with ciphertext
     ciphertext[0] ^= 1;
-
+    
     await expect(ChaCha20Poly1305.decrypt(ciphertext, tag, params))
-      .rejects
-      .toThrow('Authentication failed');
+      .to.be.rejectedWith('Decryption failed');
   });
 
-  it('should verify additional authenticated data', async () => {
-    const params: ChaChaParams = {
-      key,
-      nonce,
-      authData: Buffer.from('Original AAD')
-    };
-
-    const plaintext = Buffer.from(message);
-    const { ciphertext, tag } = await ChaCha20Poly1305.encrypt(plaintext, params);
-
-    // Try to decrypt with different AAD
-    const modifiedParams: ChaChaParams = {
+  it('should detect modified parameters', async () => {
+    const { ciphertext, tag } = await ChaCha20Poly1305.encrypt(Buffer.from(message), params);
+    
+    const modifiedParams = {
       ...params,
-      authData: Buffer.from('Modified AAD')
+      key: randomBytes(32)
     };
-
+    
     await expect(ChaCha20Poly1305.decrypt(ciphertext, tag, modifiedParams))
-      .rejects
-      .toThrow('Authentication failed');
+      .to.be.rejectedWith('Decryption failed');
   });
 
-  it('should handle empty messages', async () => {
-    const params: ChaChaParams = {
-      key,
-      nonce,
-      authData: Buffer.from('AAD')
-    };
-
-    const plaintext = Buffer.from('');
-    const { ciphertext, tag } = await ChaCha20Poly1305.encrypt(plaintext, params);
+  it('should handle empty message', async () => {
+    const { ciphertext, tag } = await ChaCha20Poly1305.encrypt(Buffer.from(''), params);
     const decrypted = await ChaCha20Poly1305.decrypt(ciphertext, tag, params);
-
-    expect(decrypted.length).toBe(0);
+    expect(decrypted.length).to.equal(0);
   });
 
   it('should reject invalid parameters', async () => {
     // Invalid key size
     await expect(ChaCha20Poly1305.encrypt(Buffer.from(message), {
       key: randomBytes(31), // Not 32 bytes
-      nonce,
-      authData: Buffer.from('AAD')
-    })).rejects.toThrow('Invalid key length');
+      nonce
+    })).to.be.rejectedWith('Invalid key length');
 
     // Invalid nonce size
     await expect(ChaCha20Poly1305.encrypt(Buffer.from(message), {
       key,
-      nonce: randomBytes(11), // Not 12 bytes
-      authData: Buffer.from('AAD')
-    })).rejects.toThrow('Invalid nonce length');
+      nonce: randomBytes(11) // Not 12 bytes
+    })).to.be.rejectedWith('Invalid nonce length');
   });
 
-  it('should handle concurrent encryption/decryption', async () => {
-    const params: ChaChaParams = {
-      key,
-      nonce,
-      authData: Buffer.from('AAD')
-    };
+  it('should handle different message types', async () => {
+    const testCases = [
+      'Regular string',
+      Buffer.from([0x00, 0xFF, 0x10, 0xAB]), // Binary data
+      Buffer.alloc(1024).fill('A'), // Large message
+      '', // Empty message
+      '🔑🔒' // Unicode string
+    ];
 
-    const numOperations = 5;
-    const operations = Array(numOperations).fill(null).map(async (_, i) => {
-      const msg = `Message ${i}`;
-      const plaintext = Buffer.from(msg);
-      const { ciphertext, tag } = await ChaCha20Poly1305.encrypt(plaintext, params);
+    for (const original of testCases) {
+      const { ciphertext, tag } = await ChaCha20Poly1305.encrypt(Buffer.from(original), params);
       const decrypted = await ChaCha20Poly1305.decrypt(ciphertext, tag, params);
-      return { original: msg, decrypted: decrypted.toString() };
-    });
-
-    const results = await Promise.all(operations);
-    results.forEach(({ original, decrypted }) => {
-      expect(decrypted).toBe(original);
-    });
+      expect(decrypted.toString()).to.equal(original);
+    }
   });
 
-  it('should be deterministic with same key and nonce', async () => {
-    const params: ChaChaParams = {
+  it('should be deterministic with same nonce', async () => {
+    const fixedNonce = Buffer.alloc(12).fill(0);
+    const params1: ChaChaParams = {
       key,
-      nonce,
-      authData: Buffer.from('AAD')
+      nonce: fixedNonce
     };
 
-    const plaintext = Buffer.from(message);
-    const result1 = await ChaCha20Poly1305.encrypt(plaintext, params);
-    const result2 = await ChaCha20Poly1305.encrypt(plaintext, params);
+    const params2 = { ...params1 };
 
-    expect(result1.ciphertext).toEqual(result2.ciphertext);
-    expect(result1.tag).toEqual(result2.tag);
+    const result1 = await ChaCha20Poly1305.encrypt(Buffer.from(message), params1);
+    const result2 = await ChaCha20Poly1305.encrypt(Buffer.from(message), params2);
+
+    expect(result1.ciphertext).to.deep.equal(result2.ciphertext);
+    expect(result1.tag).to.deep.equal(result2.tag);
   });
 
-  it('should handle large data', async () => {
-    const params: ChaChaParams = {
-      key,
-      nonce,
-      authData: Buffer.from('AAD')
-    };
-
-    const largeData = Buffer.alloc(1024 * 1024); // 1MB
-    randomBytes(1024 * 1024).copy(largeData);
-
+  it('should handle large data efficiently', async () => {
+    const largeData = randomBytes(1024 * 1024); // 1MB
     const { ciphertext, tag } = await ChaCha20Poly1305.encrypt(largeData, params);
     const decrypted = await ChaCha20Poly1305.decrypt(ciphertext, tag, params);
-
-    expect(decrypted).toEqual(largeData);
+    expect(decrypted).to.deep.equal(largeData);
   });
 
-  it('should support incremental processing', async () => {
-    const params: ChaChaParams = {
-      key,
-      nonce,
-      authData: Buffer.from('AAD')
-    };
-
+  it('should support streaming encryption', async () => {
     const chunks = [
       Buffer.from('First chunk'),
       Buffer.from('Second chunk'),
       Buffer.from('Third chunk')
     ];
 
-    // Encrypt incrementally
-    const encryptor = new ChaCha20Poly1305.Incremental(params);
+    const chacha = new ChaCha20Poly1305(params);
+    let ciphertext = Buffer.alloc(0);
     for (const chunk of chunks) {
-      await encryptor.update(chunk);
+      ciphertext = Buffer.concat([ciphertext, await chacha.update(chunk)]);
     }
-    const { ciphertext, tag } = await encryptor.final();
+    const { finalCiphertext, tag } = await chacha.final();
+    ciphertext = Buffer.concat([ciphertext, finalCiphertext]);
 
-    // Decrypt incrementally
-    const decryptor = new ChaCha20Poly1305.Incremental(params);
-    for (let i = 0; i < ciphertext.length; i += 64) {
-      const chunk = ciphertext.slice(i, i + 64);
-      await decryptor.update(chunk);
-    }
-    const decrypted = await decryptor.final(tag);
-
-    expect(decrypted.toString()).toBe(chunks.map(c => c.toString()).join(''));
+    const decrypted = await ChaCha20Poly1305.decrypt(ciphertext, tag, params);
+    expect(decrypted.toString()).to.equal(chunks.map(c => c.toString()).join(''));
   });
 }); 

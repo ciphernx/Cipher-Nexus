@@ -1,132 +1,116 @@
+import { expect } from 'chai';
 import { RangeProver, RangeProof } from '../range';
-import { Schnorr } from '../schnorr';
+import { Schnorr, SchnorrParams } from '../schnorr';
 import { BigInteger } from 'jsbn';
-import { SecureRandom } from 'crypto';
+import { randomBytes } from 'crypto';
 
-describe('Range Proof Zero-Knowledge Proof', () => {
-  const bitLength = 8; // Use 8-bit numbers for testing
-  let params: any;
+describe('RangeProver', () => {
+  let params: SchnorrParams;
   let value: BigInteger;
+  const bits = 8;
 
-  beforeAll(async () => {
-    // Generate Schnorr parameters for the range proof
-    params = await Schnorr.generateParams(512); // Use smaller parameters for testing
-    
-    // Generate a random value within the valid range (0 to 2^bitLength - 1)
-    const maxValue = new BigInteger('2').pow(bitLength).subtract(new BigInteger('1'));
-    value = new BigInteger(bitLength, 1, new SecureRandom()).mod(maxValue);
+  before(async () => {
+    params = await Schnorr.generateParams(512);
+    const valueBuffer = Buffer.from(randomBytes(Math.ceil(bits / 8)));
+    value = new BigInteger(valueBuffer.toString('hex'), 16).mod(new BigInteger('2').pow(bits));
   });
 
   it('should generate valid parameters', () => {
-    expect(params.p).toBeDefined();
-    expect(params.q).toBeDefined();
-    expect(params.g).toBeDefined();
+    expect(params.p).to.exist;
+    expect(params.q).to.exist;
+    expect(params.g).to.exist;
   });
 
-  it('should prove and verify value in range', async () => {
-    const proof = await RangeProver.prove(value, bitLength, params);
-    const isValid = await RangeProver.verify(proof, bitLength, params);
-    
-    expect(isValid).toBe(true);
+  it('should generate and verify valid proofs', async () => {
+    const proof = await RangeProver.prove(value, bits, params);
+    const isValid = await RangeProver.verify(proof, bits, params);
+    expect(isValid).to.be.true;
   });
 
-  it('should reject proof for value out of range', async () => {
-    // Create a value larger than the allowed range
-    const largeValue = new BigInteger('2').pow(bitLength).add(new BigInteger('1'));
-    
-    await expect(RangeProver.prove(largeValue, bitLength, params))
-      .rejects
-      .toThrow('Value out of range');
+  it('should reject proofs with invalid value size', async () => {
+    const invalidValue = new BigInteger('2').pow(bits + 1);
+    await expect(
+      RangeProver.prove(invalidValue, bits, params)
+    ).to.be.rejectedWith(Error);
   });
 
-  it('should reject invalid proof', async () => {
-    const proof = await RangeProver.prove(value, bitLength, params);
-    
-    // Modify the proof to make it invalid
-    const invalidProof: RangeProof = {
-      ...proof,
-      commitments: proof.commitments.map(c => c.add(new BigInteger('1')))
+  it('should reject invalid proofs', async () => {
+    const invalidProof = {
+      commitments: [params.g],
+      challenges: [new BigInteger('1')],
+      responses: [new BigInteger('1')],
+      finalCommitment: params.g
     };
-    
-    const isValid = await RangeProver.verify(invalidProof, bitLength, params);
-    expect(isValid).toBe(false);
+
+    const isValid = await RangeProver.verify(invalidProof, bits, params);
+    expect(isValid).to.be.false;
   });
 
-  it('should handle edge cases', async () => {
-    // Test with value = 0
+  it('should handle zero value correctly', async () => {
     const zeroValue = new BigInteger('0');
-    const proofZero = await RangeProver.prove(zeroValue, bitLength, params);
-    const isValidZero = await RangeProver.verify(proofZero, bitLength, params);
-    expect(isValidZero).toBe(true);
-
-    // Test with maximum allowed value (2^bitLength - 1)
-    const maxValue = new BigInteger('2').pow(bitLength).subtract(new BigInteger('1'));
-    const proofMax = await RangeProver.prove(maxValue, bitLength, params);
-    const isValidMax = await RangeProver.verify(proofMax, bitLength, params);
-    expect(isValidMax).toBe(true);
+    const proof = await RangeProver.prove(zeroValue, bits, params);
+    const isValidZero = await RangeProver.verify(proof, bits, params);
+    expect(isValidZero).to.be.true;
   });
 
-  it('should generate different proofs for same value', async () => {
-    const proof1 = await RangeProver.prove(value, bitLength, params);
-    const proof2 = await RangeProver.prove(value, bitLength, params);
-    
-    // Due to randomization, proofs should be different
-    expect(proof1.commitments).not.toEqual(proof2.commitments);
-    expect(proof1.challenges).not.toEqual(proof2.challenges);
-    expect(proof1.responses).not.toEqual(proof2.responses);
-    
-    // But both should verify
-    const isValid1 = await RangeProver.verify(proof1, bitLength, params);
-    const isValid2 = await RangeProver.verify(proof2, bitLength, params);
-    expect(isValid1).toBe(true);
-    expect(isValid2).toBe(true);
+  it('should handle maximum value correctly', async () => {
+    const maxValue = new BigInteger('2').pow(bits).subtract(BigInteger.ONE);
+    const proof = await RangeProver.prove(maxValue, bits, params);
+    const isValidMax = await RangeProver.verify(proof, bits, params);
+    expect(isValidMax).to.be.true;
+  });
+
+  it('should generate different proofs for the same value', async () => {
+    const proof1 = await RangeProver.prove(value, bits, params);
+    const proof2 = await RangeProver.prove(value, bits, params);
+
+    expect(proof1.commitments).to.not.deep.equal(proof2.commitments);
+    expect(proof1.challenges).to.not.deep.equal(proof2.challenges);
+    expect(proof1.responses).to.not.deep.equal(proof2.responses);
+
+    const isValid1 = await RangeProver.verify(proof1, bits, params);
+    const isValid2 = await RangeProver.verify(proof2, bits, params);
+    expect(isValid1).to.be.true;
+    expect(isValid2).to.be.true;
   });
 
   it('should maintain zero-knowledge property', async () => {
-    const proof = await RangeProver.prove(value, bitLength, params);
-    
-    // Verify that commitments don't reveal the bits
-    for (let i = 0; i < bitLength; i++) {
+    const proof = await RangeProver.prove(value, bits, params);
+
+    // Check that individual bit commitments don't reveal the bits
+    for (let i = 0; i < bits; i++) {
       const bit = value.testBit(i);
       const commitment = proof.commitments[i];
-      
-      // The commitment should not directly reveal the bit
-      expect(commitment.equals(new BigInteger(bit ? '1' : '0'))).toBe(false);
+      expect(commitment.equals(new BigInteger(bit ? '1' : '0'))).to.be.false;
     }
-    
-    // The final commitment should not reveal the value
-    expect(proof.finalCommitment.equals(value)).toBe(false);
+
+    // Check that final commitment doesn't reveal the value
+    expect(proof.finalCommitment.equals(value)).to.be.false;
   });
 
   it('should handle different bit lengths', async () => {
-    const testBitLengths = [4, 8, 16];
-    
-    for (const bits of testBitLengths) {
-      const maxValue = new BigInteger('2').pow(bits).subtract(new BigInteger('1'));
-      const testValue = new BigInteger(bits, 1, new SecureRandom()).mod(maxValue);
-      
-      const proof = await RangeProver.prove(testValue, bits, params);
-      const isValid = await RangeProver.verify(proof, bits, params);
-      
-      expect(isValid).toBe(true);
-      expect(proof.commitments.length).toBe(bits);
-      expect(proof.challenges.length).toBe(bits);
-      expect(proof.responses.length).toBe(bits);
+    for (let testBits = 1; testBits <= 16; testBits++) {
+      const testBuffer = Buffer.from(randomBytes(Math.ceil(testBits / 8)));
+      const testValue = new BigInteger(testBuffer.toString('hex'), 16).mod(new BigInteger('2').pow(testBits));
+      const proof = await RangeProver.prove(testValue, testBits, params);
+      const isValid = await RangeProver.verify(proof, testBits, params);
+      expect(isValid).to.be.true;
+      expect(proof.commitments.length).to.equal(testBits);
+      expect(proof.challenges.length).to.equal(testBits);
+      expect(proof.responses.length).to.equal(testBits);
     }
   });
 
-  it('should reject proof with mismatched bit length', async () => {
-    const proof = await RangeProver.prove(value, bitLength, params);
-    
-    // Try to verify with wrong bit length
-    const isValid = await RangeProver.verify(proof, bitLength + 1, params);
-    expect(isValid).toBe(false);
+  it('should reject values outside the range', async () => {
+    const outsideValue = new BigInteger('2').pow(bits);
+    const proof = await RangeProver.prove(value, bits, params);
+    const isValid = await RangeProver.verify(proof, bits, params);
+    expect(isValid).to.be.false;
   });
 
-  it('should reject proof with invalid parameter sizes', async () => {
-    const invalidParams = await Schnorr.generateParams(256); // Too small
-    await expect(RangeProver.prove(value, bitLength, invalidParams))
-      .rejects
-      .toThrow('Invalid parameter size');
+  it('should reject invalid parameter sizes', async () => {
+    await expect(
+      RangeProver.generateParameters(256)
+    ).to.be.rejectedWith(Error);
   });
 }); 

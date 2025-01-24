@@ -44,16 +44,10 @@ export enum DistributedStrategy {
 }
 
 export interface ModelConfig {
-  type: ModelType;
-  path: string;
-  inputShape: number[];
-  outputShape: number[];
-  taskType: TaskType;
-  encryptionEnabled?: boolean;
-  protocolEnabled?: boolean;
-  compressionConfig?: CompressionConfig;
-  distributedConfig?: DistributedConfig;
-  interpretabilityConfig?: InterpretabilityConfig;
+  layers: {
+    units: number;
+    inputDim: number;
+  }[];
 }
 
 export interface TrainingConfig {
@@ -97,10 +91,22 @@ export interface SecureModelConfig extends ModelConfig {
 }
 
 export interface ModelState {
-  isLoaded: boolean;
-  isTraining: boolean;
-  metrics?: ModelMetrics;
-  lastUpdated?: Date;
+  weights: number[][][];
+  round: number;
+  metrics: {
+    accuracy: number;
+    loss: number;
+    timestamp: Date;
+  };
+}
+
+export interface ModelUpdate {
+  clientId: string;
+  weights: number[][][];
+  metrics?: {
+    accuracy: number;
+    loss: number;
+  };
 }
 
 export interface CompressionConfig {
@@ -135,4 +141,10 @@ export interface AugmentationConfig {
   cropSize?: number;
   mixupAlpha?: number;
   cutoutSize?: number;
+}
+
+export interface FederatedConfig {
+  enablePrivacy: boolean;
+  maxWeightMagnitude: number;
+  minClientUpdates: number;
 } 

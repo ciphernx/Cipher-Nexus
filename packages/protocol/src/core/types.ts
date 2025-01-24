@@ -13,8 +13,8 @@ export interface Participant {
  */
 export interface Session {
   id: string;
-  participants: Participant[];
-  state: any;
+  participants: string[];
+  localParticipantId: string;
   startTime: Date;
   endTime?: Date;
 }
@@ -23,11 +23,11 @@ export interface Session {
  * Protocol message interface
  */
 export interface Message {
+  session: Session;
   type: string;
-  sender: string;
-  receiver: string;
-  content: Buffer;
-  signature?: Buffer;
+  data?: any;
+  senderId: string;
+  receiverId: string;
   timestamp: Date;
 }
 
@@ -38,9 +38,9 @@ export enum ProtocolErrorType {
   INVALID_STATE = 'INVALID_STATE',
   INVALID_MESSAGE = 'INVALID_MESSAGE',
   INVALID_PARTICIPANT = 'INVALID_PARTICIPANT',
-  TIMEOUT = 'TIMEOUT',
-  VERIFICATION_FAILED = 'VERIFICATION_FAILED',
-  INTERNAL_ERROR = 'INTERNAL_ERROR'
+  INTERNAL_ERROR = 'INTERNAL_ERROR',
+  NETWORK_ERROR = 'NETWORK_ERROR',
+  TIMEOUT = 'TIMEOUT'
 }
 
 /**

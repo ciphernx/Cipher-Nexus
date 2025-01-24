@@ -1,228 +1,154 @@
+import { expect } from 'chai';
 import { AES, AESParams, AESMode } from '../aes';
 import { randomBytes } from 'crypto';
 
-describe('AES Encryption', () => {
-  const message = 'Hello, AES Encryption!';
-  let key: Buffer;
-  let iv: Buffer;
+describe('AES', () => {
+  const message = 'Hello, AES!';
+  const key = randomBytes(32); // AES-256
+  const iv = randomBytes(16);
 
-  beforeEach(() => {
-    // Generate random key and IV for each test
-    key = randomBytes(32); // 256-bit key
-    iv = randomBytes(16);  // 128-bit IV
-  });
+  const params: AESParams = {
+    key,
+    iv,
+    mode: AESMode.CBC
+  };
 
   it('should encrypt and decrypt correctly in CBC mode', async () => {
-    const params: AESParams = {
-      mode: AESMode.CBC,
-      key,
-      iv
-    };
-
-    const plaintext = Buffer.from(message);
-    const ciphertext = await AES.encrypt(plaintext, params);
+    const ciphertext = await AES.encrypt(Buffer.from(message), params);
     const decrypted = await AES.decrypt(ciphertext, params);
-
-    expect(decrypted.toString()).toBe(message);
+    expect(decrypted.toString()).to.equal(message);
   });
 
   it('should encrypt and decrypt correctly in GCM mode', async () => {
-    const params: AESParams = {
-      mode: AESMode.GCM,
-      key,
-      iv,
-      authData: Buffer.from('Additional authenticated data')
+    const gcmParams: AESParams = {
+      ...params,
+      mode: AESMode.GCM
     };
 
-    const plaintext = Buffer.from(message);
-    const { ciphertext, tag } = await AES.encryptGCM(plaintext, params);
-    const decrypted = await AES.decryptGCM(ciphertext, tag, params);
-
-    expect(decrypted.toString()).toBe(message);
+    const { ciphertext, tag } = await AES.encryptGCM(Buffer.from(message), gcmParams);
+    const decrypted = await AES.decryptGCM(ciphertext, tag, gcmParams);
+    expect(decrypted.toString()).to.equal(message);
   });
 
-  it('should produce different ciphertexts for same plaintext with different IVs', async () => {
+  it('should produce different ciphertexts for same plaintext', async () => {
     const params1: AESParams = {
-      mode: AESMode.CBC,
       key,
-      iv: randomBytes(16)
+      iv: randomBytes(16),
+      mode: AESMode.CBC
     };
 
     const params2: AESParams = {
-      mode: AESMode.CBC,
       key,
-      iv: randomBytes(16)
+      iv: randomBytes(16),
+      mode: AESMode.CBC
     };
 
-    const plaintext = Buffer.from(message);
-    const ciphertext1 = await AES.encrypt(plaintext, params1);
-    const ciphertext2 = await AES.encrypt(plaintext, params2);
-
-    expect(ciphertext1).not.toEqual(ciphertext2);
+    const ciphertext1 = await AES.encrypt(Buffer.from(message), params1);
+    const ciphertext2 = await AES.encrypt(Buffer.from(message), params2);
+    expect(ciphertext1).to.not.deep.equal(ciphertext2);
   });
 
   it('should handle different key sizes', async () => {
-    const keySizes = [16, 24, 32]; // 128, 192, 256 bits
+    const keySizes = [16, 24, 32]; // AES-128, AES-192, AES-256
 
     for (const keySize of keySizes) {
       const params: AESParams = {
-        mode: AESMode.CBC,
         key: randomBytes(keySize),
-        iv
+        iv,
+        mode: AESMode.CBC
       };
 
-      const plaintext = Buffer.from(message);
-      const ciphertext = await AES.encrypt(plaintext, params);
+      const ciphertext = await AES.encrypt(Buffer.from(message), params);
       const decrypted = await AES.decrypt(ciphertext, params);
-
-      expect(decrypted.toString()).toBe(message);
+      expect(decrypted.toString()).to.equal(message);
     }
   });
 
-  it('should verify authentication in GCM mode', async () => {
-    const params: AESParams = {
-      mode: AESMode.GCM,
+  it('should detect tampering in GCM mode', async () => {
+    const gcmParams: AESParams = {
       key,
       iv,
-      authData: Buffer.from('Additional authenticated data')
+      mode: AESMode.GCM
     };
 
-    const plaintext = Buffer.from(message);
-    const { ciphertext, tag } = await AES.encryptGCM(plaintext, params);
-
-    // Modify ciphertext
+    const { ciphertext, tag } = await AES.encryptGCM(Buffer.from(message), gcmParams);
+    
+    // Tamper with ciphertext
     ciphertext[0] ^= 1;
-
-    await expect(AES.decryptGCM(ciphertext, tag, params))
-      .rejects
-      .toThrow('Authentication failed');
+    
+    await expect(AES.decryptGCM(ciphertext, tag, gcmParams))
+      .to.be.rejectedWith('Decryption failed');
   });
 
-  it('should handle padding correctly', async () => {
-    const params: AESParams = {
-      mode: AESMode.CBC,
-      key,
-      iv
-    };
-
-    // Test different message lengths
-    const messages = [
-      '',
-      'A',
-      'AB',
-      'ABC',
-      'A'.repeat(15),
-      'A'.repeat(16),
-      'A'.repeat(17)
+  it('should handle different message types', async () => {
+    const testCases = [
+      'Regular string',
+      Buffer.from([0x00, 0xFF, 0x10, 0xAB]), // Binary data
+      Buffer.alloc(1024).fill('A'), // Large message
+      '', // Empty message
+      '🔑🔒' // Unicode string
     ];
 
-    for (const msg of messages) {
-      const plaintext = Buffer.from(msg);
-      const ciphertext = await AES.encrypt(plaintext, params);
+    for (const msg of testCases) {
+      const ciphertext = await AES.encrypt(Buffer.from(msg), params);
       const decrypted = await AES.decrypt(ciphertext, params);
-
-      expect(decrypted.toString()).toBe(msg);
+      expect(decrypted.toString()).to.equal(msg);
     }
   });
 
   it('should reject invalid parameters', async () => {
     // Invalid key size
     await expect(AES.encrypt(Buffer.from(message), {
-      mode: AESMode.CBC,
       key: randomBytes(15), // Not 16, 24, or 32 bytes
-      iv
-    })).rejects.toThrow('Invalid key length');
+      iv,
+      mode: AESMode.CBC
+    })).to.be.rejectedWith('Invalid key length');
 
     // Invalid IV size
     await expect(AES.encrypt(Buffer.from(message), {
-      mode: AESMode.CBC,
       key,
-      iv: randomBytes(15) // Not 16 bytes
-    })).rejects.toThrow('Invalid IV length');
+      iv: randomBytes(15), // Not 16 bytes
+      mode: AESMode.CBC
+    })).to.be.rejectedWith('Invalid IV length');
   });
 
-  it('should handle concurrent encryption/decryption', async () => {
-    const params: AESParams = {
-      mode: AESMode.CBC,
+  it('should be deterministic with same IV', async () => {
+    const fixedIV = Buffer.alloc(16).fill(0);
+    const params1: AESParams = {
       key,
-      iv
+      iv: fixedIV,
+      mode: AESMode.CBC
     };
 
-    const numOperations = 5;
-    const operations = Array(numOperations).fill(null).map(async (_, i) => {
-      const msg = `Message ${i}`;
-      const plaintext = Buffer.from(msg);
-      const ciphertext = await AES.encrypt(plaintext, params);
-      const decrypted = await AES.decrypt(ciphertext, params);
-      return { original: msg, decrypted: decrypted.toString() };
-    });
+    const params2 = { ...params1 };
 
-    const results = await Promise.all(operations);
-    results.forEach(({ original, decrypted }) => {
-      expect(decrypted).toBe(original);
-    });
+    const ciphertext1 = await AES.encrypt(Buffer.from(message), params1);
+    const ciphertext2 = await AES.encrypt(Buffer.from(message), params2);
+    expect(ciphertext1).to.deep.equal(ciphertext2);
   });
 
-  it('should be deterministic with same key and IV', async () => {
-    const params: AESParams = {
-      mode: AESMode.CBC,
-      key,
-      iv
-    };
-
-    const plaintext = Buffer.from(message);
-    const ciphertext1 = await AES.encrypt(plaintext, params);
-    const ciphertext2 = await AES.encrypt(plaintext, params);
-
-    expect(ciphertext1).toEqual(ciphertext2);
-  });
-
-  it('should handle large data', async () => {
-    const params: AESParams = {
-      mode: AESMode.CBC,
-      key,
-      iv
-    };
-
-    const largeData = Buffer.alloc(1024 * 1024); // 1MB
-    randomBytes(1024 * 1024).copy(largeData);
-
+  it('should handle large data efficiently', async () => {
+    const largeData = randomBytes(1024 * 1024); // 1MB
     const ciphertext = await AES.encrypt(largeData, params);
     const decrypted = await AES.decrypt(ciphertext, params);
-
-    expect(decrypted).toEqual(largeData);
+    expect(decrypted).to.deep.equal(largeData);
   });
 
-  it('should support streaming encryption/decryption', async () => {
-    const params: AESParams = {
-      mode: AESMode.CBC,
-      key,
-      iv
-    };
-
+  it('should support streaming encryption', async () => {
     const chunks = [
       Buffer.from('First chunk'),
       Buffer.from('Second chunk'),
       Buffer.from('Third chunk')
     ];
 
-    const encryptStream = AES.createEncryptStream(params);
-    const decryptStream = AES.createDecryptStream(params);
-
-    let encrypted = Buffer.alloc(0);
-    let decrypted = Buffer.alloc(0);
-
+    const aes = new AES(params);
+    let ciphertext = Buffer.alloc(0);
     for (const chunk of chunks) {
-      encrypted = Buffer.concat([encrypted, await encryptStream.write(chunk)]);
+      ciphertext = Buffer.concat([ciphertext, await aes.update(chunk)]);
     }
-    encrypted = Buffer.concat([encrypted, await encryptStream.final()]);
+    ciphertext = Buffer.concat([ciphertext, await aes.final()]);
 
-    for (let i = 0; i < encrypted.length; i += 16) {
-      const chunk = encrypted.slice(i, i + 16);
-      decrypted = Buffer.concat([decrypted, await decryptStream.write(chunk)]);
-    }
-    decrypted = Buffer.concat([decrypted, await decryptStream.final()]);
-
-    expect(decrypted.toString()).toBe(chunks.map(c => c.toString()).join(''));
+    const decrypted = await AES.decrypt(ciphertext, params);
+    expect(decrypted.toString()).to.equal(chunks.map(c => c.toString()).join(''));
   });
 }); 

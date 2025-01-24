@@ -2,19 +2,19 @@ import { EventEmitter } from 'events';
 import { createHash } from 'crypto';
 
 interface EnclaveConfig {
-  type: 'sgx' | 'trustzone' | 'cxl';  // 支持的TEE类型
-  memorySize: number;                  // 内存大小(MB)
-  threadCount: number;                 // 线程数
+  type: 'sgx' | 'trustzone' | 'cxl';  // Supported TEE types
+  memorySize: number;                  // Memory size (MB)
+  threadCount: number;                 // Thread count
   securityLevel: 'high' | 'medium' | 'low';
 }
 
 interface EnclaveState {
   id: string;
   status: 'initialized' | 'running' | 'stopped' | 'error';
-  attestationReport?: string;         // 远程认证报告
+  attestationReport?: string;         // Remote attestation report
   measurements: {
-    mrenclave: string;                // 代码度量值
-    mrsigner: string;                 // 签名者度量值
+    mrenclave: string;                // Code measurement value
+    mrsigner: string;                 // Signer measurement value
   };
   resources: {
     memoryUsed: number;
@@ -38,80 +38,61 @@ export class TrustedExecutionManager extends EventEmitter {
   }
 
   async initializeEnclave(config: EnclaveConfig): Promise<string> {
-    try {
-      // 生成唯一的enclave ID
-      const enclaveId = this.generateEnclaveId();
+    // Initialize enclave state
+    const enclaveId = this.generateEnclaveId();
+    
+    // Store enclave state and configuration
+    this.enclaves.set(enclaveId, {
+      id: enclaveId,
+      status: 'initialized',
+      measurements: {
+        mrenclave: await this.generateMeasurement('enclave'),
+        mrsigner: await this.generateMeasurement('signer')
+      },
+      resources: {
+        memoryUsed: 0,
+        cpuUsage: 0
+      }
+    });
 
-      // 初始化enclave状态
-      const enclaveState: EnclaveState = {
-        id: enclaveId,
-        status: 'initialized',
-        measurements: {
-          mrenclave: await this.generateMeasurement('enclave'),
-          mrsigner: await this.generateMeasurement('signer')
-        },
-        resources: {
-          memoryUsed: 0,
-          cpuUsage: 0
-        }
-      };
+    this.configs.set(enclaveId, config);
 
-      // 存储enclave状态和配置
-      this.enclaves.set(enclaveId, enclaveState);
-      this.configs.set(enclaveId, config);
+    this.emit('enclaveInitialized', {
+      enclaveId,
+      config
+    });
 
-      this.emit('enclaveInitialized', {
-        enclaveId,
-        config
-      });
-
-      return enclaveId;
-    } catch (error) {
-      this.emit('error', error);
-      throw error;
-    }
+    return enclaveId;
   }
 
   async startEnclave(enclaveId: string): Promise<void> {
-    try {
-      const enclave = this.enclaves.get(enclaveId);
-      if (!enclave) {
-        throw new Error('Enclave not found');
-      }
-
-      // 启动enclave
-      enclave.status = 'running';
-      
-      // 生成远程认证报告
-      enclave.attestationReport = await this.generateAttestationReport(enclaveId);
-
-      this.emit('enclaveStarted', {
-        enclaveId,
-        attestationReport: enclave.attestationReport
-      });
-    } catch (error) {
-      this.emit('error', error);
-      throw error;
+    // Start enclave
+    const enclave = this.enclaves.get(enclaveId);
+    if (!enclave) {
+      throw new Error('Enclave not found');
     }
+
+    // Generate remote attestation report
+    enclave.attestationReport = await this.generateAttestationReport(enclaveId);
+    enclave.status = 'running';
+
+    this.emit('enclaveStarted', {
+      enclaveId,
+      attestationReport: enclave.attestationReport
+    });
   }
 
   async stopEnclave(enclaveId: string): Promise<void> {
-    try {
-      const enclave = this.enclaves.get(enclaveId);
-      if (!enclave) {
-        throw new Error('Enclave not found');
-      }
-
-      // 停止enclave
-      enclave.status = 'stopped';
-      
-      this.emit('enclaveStopped', {
-        enclaveId
-      });
-    } catch (error) {
-      this.emit('error', error);
-      throw error;
+    // Stop enclave
+    const enclave = this.enclaves.get(enclaveId);
+    if (!enclave) {
+      throw new Error('Enclave not found');
     }
+    enclave.status = 'stopped';
+
+    this.emit('enclaveStopped', {
+      enclaveId
+    });
   }
 
   async verifyAttestation(enclaveId: string): Promise<AttestationResult> {
@@ -125,7 +106,7 @@ export class TrustedExecutionManager extends EventEmitter {
         throw new Error('No attestation report available');
       }
 
-      // 验证远程认证报告
+      // Verify remote attestation report
       const result: AttestationResult = {
         isValid: await this.verifyReport(enclave.attestationReport),
         report: enclave.attestationReport,
@@ -160,13 +141,13 @@ export class TrustedExecutionManager extends EventEmitter {
         throw new Error('Enclave is not running');
       }
 
-      // 验证代码完整性
+      // Verify code integrity
       const codeMeasurement = await this.measureCode(code);
       if (codeMeasurement !== enclave.measurements.mrenclave) {
         throw new Error('Code integrity check failed');
       }
 
-      // 在enclave中执行代码
+      // Execute code in enclave
       const result = await this.executeSecurely(enclaveId, code, input);
 
       this.emit('executionCompleted', {
@@ -186,6 +167,7 @@ export class TrustedExecutionManager extends EventEmitter {
   }
 
   private generateEnclaveId(): string {
+    // Generate unique enclave ID
     const hash = createHash('sha256');
     hash.update(Date.now().toString() + Math.random().toString());
     return hash.digest('hex').substring(0, 16);
@@ -198,12 +180,12 @@ export class TrustedExecutionManager extends EventEmitter {
   }
 
   private async generateAttestationReport(enclaveId: string): Promise<string> {
+    // Generate attestation report
     const enclave = this.enclaves.get(enclaveId);
     if (!enclave) {
       throw new Error('Enclave not found');
     }
 
-    // 生成认证报告
     const report = {
       enclaveId,
       measurements: enclave.measurements,
@@ -215,8 +197,8 @@ export class TrustedExecutionManager extends EventEmitter {
   }
 
   private async verifyReport(report: string): Promise<boolean> {
-    // 验证报告的真实性和完整性
-    // 在实际实现中，这里需要使用TEE SDK进行验证
+    // Verify remote attestation report
+    // In actual implementation, this should use TEE SDK for verification
     return true;
   }
 
@@ -237,8 +219,8 @@ export class TrustedExecutionManager extends EventEmitter {
     code: string,
     input: any
   ): Promise<any> {
-    // 在实际实现中，这里需要使用TEE SDK执行代码
-    // 这里只是一个示例实现
+    // Execute code in TEE
+    // In actual implementation, this should use TEE SDK
     return {
       status: 'success',
       output: 'Executed in TEE'
@@ -246,8 +228,8 @@ export class TrustedExecutionManager extends EventEmitter {
   }
 
   private async getPlatformInfo(): Promise<any> {
-    // 获取平台信息
-    // 在实际实现中，这里需要使用TEE SDK获取平台信息
+    // Get platform information
+    // In actual implementation, this should use TEE SDK
     return {
       type: 'SGX',
       version: '2.0',
